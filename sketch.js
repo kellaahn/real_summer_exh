@@ -21,6 +21,11 @@ const EYE_HOLE_SPACING_MULTIPLIER = 1.7; // <- 두 원 사이 간격. 1보다 �
 let faceLandmarker;
 let lastVideoTime = -1;
 
+// 원래는 눈 추적 원이 보이지 않다가, 단어를 처음 클릭하면 3초 뒤부터 나타난다.
+const REVEAL_DELAY_MS = 3000;
+let eyeRevealEnabled = false;
+let eyeRevealTriggered = false;
+
 // 단어별로 span을 씌워서 마우스를 올린 단어만 폰트를 바꿀 수 있게 한다.
 function wrapWordsInSpans(el) {
     const tokens = el.textContent.split(/(\s+)/);
@@ -58,7 +63,16 @@ if (pontElement) {
     wrapWordsInSpans(pontElement);
     pontElement.addEventListener('click', (e) => {
         const clickedSpan = e.target.closest('.word');
-        if (clickedSpan) spreadWordFromClick(clickedSpan);
+        if (!clickedSpan) return;
+        spreadWordFromClick(clickedSpan);
+
+        if (!eyeRevealTriggered) {
+            eyeRevealTriggered = true;
+            setTimeout(() => {
+                eyeRevealEnabled = true;
+                pontElement.classList.add('eye-mask');
+            }, REVEAL_DELAY_MS);
+        }
     });
 }
 
@@ -69,7 +83,7 @@ function updateEyeReveal(landmarks) {
 
     const vw = videoElement.videoWidth;
     const vh = videoElement.videoHeight;
-    if (!landmarks || !vw || !vh) {
+    if (!eyeRevealEnabled || !landmarks || !vw || !vh) {
         pontElement.style.setProperty('--eye-r', '0px');
         return;
     }

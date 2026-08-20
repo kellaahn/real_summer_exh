@@ -54,12 +54,13 @@ html, body{
     z-index: 2;
 
 
-    /* 눈(동공) 위치에 뜬 원 2개 안에서만 텍스트가 보이도록 뚫어준다. 나머지는 body의
-       검은 배경이 그대로 드러난다. */
+}
 
-
-
-mask-repeat: no-repeat;
+/* 첫 화면에는 글자가 전부 보이다가, 단어를 클릭하고 3초가 지나면 이 클래스가 붙으면서
+   눈(동공) 위치에 뜬 원 2개 안에서만 텍스트가 보이도록 뚫어준다. 나머지는 body의
+   검은 배경이 그대로 드러난다. */
+.pont.eye-mask{
+    mask-repeat: no-repeat;
     -webkit-mask-repeat: no-repeat;
     mask-image:
         radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 70%, transparent 100%),
@@ -67,12 +68,6 @@ mask-repeat: no-repeat;
     -webkit-mask-image:
         radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 70%, transparent 100%),
         radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 70%, transparent 100%);
-
-
-    
-   
-
-   
 }
 
 .pont .word{
