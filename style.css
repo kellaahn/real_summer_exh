@@ -1,0 +1,88 @@
+
+html, body{
+    height: 100%;
+    overflow: hidden;
+    background: #000000;
+
+   
+    font-weight: 400;
+    font-style: normal;
+    font-variation-settings:
+    "wdth" 100;
+  
+    
+}
+
+
+
+
+
+
+/* 화면에는 안 보이지만 FaceLandmarker 입력 소스로 계속 재생만 되고 있으면 된다. */
+#webcam{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+
+.pont{
+    padding: 0px;
+    margin: 0px;
+
+    position:absolute;
+    top: 0%;
+    left: 0%;
+    text-align: left;
+    width: 101%;
+    height: 100%;
+
+    line-height: 1 ;
+    font-size: 35px;
+    font-family: "Gowun Batang", serif;
+
+    transform: scaleY(1);
+    
+    font-weight: 700;
+    font-style: normal;
+    color: #1b32df;
+    z-index: 2;
+
+
+    /* 눈(동공) 위치에 뜬 원 2개 안에서만 텍스트가 보이도록 뚫어준다. 나머지는 body의
+       검은 배경이 그대로 드러난다. */
+
+
+
+mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-image:
+        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 70%, transparent 100%),
+        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 70%, transparent 100%);
+    -webkit-mask-image:
+        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 70%, transparent 100%),
+        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 70%, transparent 100%);
+
+
+    
+   
+
+   
+}
+
+.pont .word{
+  cursor: pointer;
+}
+
+.pont .word:hover{
+  font-family: "Song Myung", serif;
+  font-weight: 700  ;
+  font-style: normal;
+  color: #ff0000;
+  font-size: 35px;
+}
