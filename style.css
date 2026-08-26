@@ -59,7 +59,7 @@ html, body{
 
     backdrop-filter: saturate(0.2);
 
-    filter: contrast(86%) blur(2.1px);
+    filter: contrast(186%) blur(2.1px);
     z-index: 800;
     pointer-events: none;
 

@@ -566,7 +566,7 @@ const RIGHT_EYE_OUTER = 263;
 const EYE_HOLE_RADIUS_MULTIPLIER = 1; // <- 눈 폭 대비 구멍 반지름. 숫자만 바꾸면 즉시 반영된다.
 const EYE_HOLE_SPACING_MULTIPLIER = 1; // <- 두 원 사이 간격. 1이면 원 중심이 동공 중심과 정확히 일치한다.
 const EYE_SPHERE_RADIUS_MULTIPLIER = 1; // <- --eye-r 대비 구 반지름. 1이어야 셰이더의 왜곡 0 지점(r=1)이 눈에 보이는 원(링/마스크) 경계와 정확히 겹친다.
-const EYE_SPHERE_ZOOM_POWER = 3.5; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다.
+const EYE_SPHERE_ZOOM_POWER = 2.7; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다.
 
 // 화면 픽셀 좌표를 그대로 world 좌표로 쓰기 위한 직교 카메라. left=0,right=dw,top=0,bottom=dh로
 // 두면 화면처럼 원점이 왼쪽 위, y가 아래로 증가하는 좌표계가 그대로 맞아떨어진다.
