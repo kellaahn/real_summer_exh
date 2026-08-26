@@ -159,6 +159,8 @@ function paintDragCell(index) {
     const [row, col] = dragPath[index].split(',');
     const cellEl = getRectCellElement(row, col);
     if (!cellEl) return;
+    // 이미 정답으로 확인돼서 투명해진 칸은 그라데이션으로 덮어쓰지 않는다.
+    if (cellEl.style.backgroundColor === 'transparent') return;
     const from = lerpRgb(SELECTION_GRADIENT_START_RGB, SELECTION_GRADIENT_END_RGB, index / targetWordLength);
     const to = lerpRgb(SELECTION_GRADIENT_START_RGB, SELECTION_GRADIENT_END_RGB, (index + 1) / targetWordLength);
     cellEl.style.backgroundImage = `linear-gradient(${DIRECTION_TO_CSS_ANGLE[dragDirection]}, rgb(${from.join(',')}), rgb(${to.join(',')}))`;
@@ -564,7 +566,7 @@ const RIGHT_EYE_OUTER = 263;
 const EYE_HOLE_RADIUS_MULTIPLIER = 1; // <- 눈 폭 대비 구멍 반지름. 숫자만 바꾸면 즉시 반영된다.
 const EYE_HOLE_SPACING_MULTIPLIER = 1; // <- 두 원 사이 간격. 1이면 원 중심이 동공 중심과 정확히 일치한다.
 const EYE_SPHERE_RADIUS_MULTIPLIER = 1; // <- --eye-r 대비 구 반지름. 1이어야 셰이더의 왜곡 0 지점(r=1)이 눈에 보이는 원(링/마스크) 경계와 정확히 겹친다.
-const EYE_SPHERE_ZOOM_POWER = 4.5; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다.
+const EYE_SPHERE_ZOOM_POWER = 3.5; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다.
 
 // 화면 픽셀 좌표를 그대로 world 좌표로 쓰기 위한 직교 카메라. left=0,right=dw,top=0,bottom=dh로
 // 두면 화면처럼 원점이 왼쪽 위, y가 아래로 증가하는 좌표계가 그대로 맞아떨어진다.
@@ -779,6 +781,27 @@ if (geulsElement) {
     });
 }
 
+// 사각형 칸 중 이미 "고등어" 정답으로 확인돼서 투명해진 칸들을 전부 원래
+// 흰색으로 되돌린다. 사람 눈이 화면에서 사라졌을 때 게임 진행 상태를
+// 초기화하는 용도로 쓴다.
+function resetSolvedRectCells() {
+    if (!rectGridElement) return;
+    for (let r = 0; r < CHAR_GRID_ROWS; r++) {
+        for (let c = 0; c < CHAR_GRID_COLS; c++) {
+            const cellEl = getRectCellElement(r, c);
+            if (!cellEl || cellEl.style.backgroundColor !== 'transparent') continue;
+            cellEl.style.backgroundImage = '';
+            cellEl.style.backgroundColor = '#ffffff';
+        }
+    }
+}
+window.resetSolvedRectCells = resetSolvedRectCells;
+
+// 직전 프레임에도 눈이 화면에 보이고 있었는지. 눈이 "보임 → 안 보임"으로
+// 바뀌는 그 순간에만 한 번 초기화하면 되므로, 안 보이는 동안 매 프레임
+// 반복해서 초기화하지 않으려고 이 플래그로 전환 시점만 잡아낸다.
+let eyesWereVisible = false;
+
 // 눈(홍채) 위치를 화면 좌표로 변환해 마스크 구멍 위치/반경과 눈 확대 구를 갱신한다.
 // 좌표 자체는 미러링 변환이 없으므로, 여기서는 화면에 실제로 보이는(미러링된) 좌표로 바꿔서 쓴다.
 // .pont가 없어도(지금처럼 .geuls로 대체된 경우) 눈 추적/확대는 계속 동작해야 하므로
@@ -789,8 +812,14 @@ function updateEyeReveal(landmarks) {
     if (!landmarks || !vw || !vh) {
         document.documentElement.style.setProperty('--eye-r', '0px');
         disableEyeSpheres();
+        // 눈이 화면에서 사라진 그 순간에만 사각형 칸들을 흰색으로 되돌린다.
+        if (eyesWereVisible) {
+            resetSolvedRectCells();
+            eyesWereVisible = false;
+        }
         return;
     }
+    eyesWereVisible = true;
 
     const dw = window.innerWidth;
     const dh = window.innerHeight;
