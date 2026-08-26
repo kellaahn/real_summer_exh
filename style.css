@@ -2,10 +2,11 @@
 html, body{
     height: 100%;
     overflow: hidden;
-    background: #000000;
+    background: #0400ff;
 
    
-    font-weight: 400;
+    font-family: "Gowun Batang", serif;
+
     font-style: normal;
     font-variation-settings:
     "wdth" 100;
@@ -13,48 +14,252 @@ html, body{
     
 }
 
+.question{
+  position: fixed;
+  top:6%;
+  left:7.2%;
+
+  font-size: 26px;
+
+  font-family: "Noto Sans KR", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 100;
+  font-style: normal;
+
+  z-index: 9999;
+}
+
+.ques_1{
+  padding: 1px 6px;
+  background-color: #000000;
+  color:#ffffff;
+}
+
+
+.noise {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+
+    pointer-events: none;
+    z-index: 998;
+
+    opacity: 0.3;
+
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1 ' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+
+    
+}
+    
+
+.filter{
+    position: fixed;
+    inset: 0;
+
+    backdrop-filter: saturate(0.2);
+
+    filter: contrast(86%) blur(2.1px);
+    z-index: 800;
+    pointer-events: none;
+
+}
+
+/*
 
 
 
 
 
-/* 화면에는 안 보이지만 FaceLandmarker 입력 소스로 계속 재생만 되고 있으면 된다. */
+
+
+
+
+/* 촬영 화면(#webcam 등)보다 앞에 떠 있는 진짜 <table> 그리드. div+grid로
+   칸마다 따로 border를 그리면 맞닿은 칸끼리 두 겹이 되어 안쪽 선이 바깥
+   테두리보다 두꺼워지는데, table은 border-collapse로 맞닿은 선을 자동으로
+   한 줄로 합쳐주기 때문에 이 문제가 아예 생기지 않는다. */
+/* 칸 크기/가로세로 칸 수는 sketch.js의 CHAR_GRID_CELL_SIZE / CHAR_GRID_COLS /
+   CHAR_GRID_ROWS 숫자로 정한다. 여기 CSS는 위치/여백 같은 생김새만 담당한다. */
+.char-grid{
+    position: fixed;
+    top: 52%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+
+    /* border-collapse를 쓰면 collapsed border가 지정한 width/height 바깥으로
+       반 픽셀씩 더 붙어서, 표의 실제 렌더링 크기가 COLS*WIDTH보다 미세하게
+       커진다. box-sizing: border-box로 이 테두리를 지정한 크기 "안쪽"으로
+       포함시켜야 표가 정확히 COLS*WIDTH / ROWS*HEIGHT만큼만 차지해서,
+       같은 값으로 크기를 정하는 .rect-grid와 오차 없이 겹친다. */
+    box-sizing: border-box;
+
+    border-collapse: collapse;
+    /* table-layout:auto(기본값)는 <td>에 준 width/height를 참고만 하고
+       내용에 맞춰 칸 크기를 재분배해버린다. fixed로 바꿔야 sketch.js가
+       지정한 CHAR_GRID_CELL_WIDTH/HEIGHT가 그대로 지켜진다. */
+    table-layout: fixed;
+
+    /* 스프레드를 아주 크게 준 box-shadow는 이 박스 "바깥"만 칠한다.
+       그래서 표 자체는 그대로 두고, 표 밖 여백만 흰색 불투명으로 덮인다. */
+    box-shadow: 0 0 0 9999px #ffffff;
+
+    pointer-events: none;
+}
+
+/* .char-grid 칸들과 정확히 같은 자리/크기에 겹쳐지는 사각형 레이어.
+   div+grid로 만들었을 때는 table의 border-collapse 박스 계산 방식과
+   달라서 가장자리가 미세하게 어긋났다. 그래서 이 레이어도 .char-grid와
+   똑같이 <table>+border-collapse로 만든다 — 계산 방식 자체가 같아지므로
+   크기가 절대 어긋나지 않는다. 테두리는 .char-cell과 같은 두께(1px)를
+   유지하되 색만 투명하게 해서 안 보이게 한다.
+   쌓임 순서: #webcam(10) < #webcam-eyes/eye-ring/eye-sphere-canvas(90~92)
+   < .rect-grid(900, 이 레이어) < .char-grid(1000, 표) */
+.rect-grid{
+    position: fixed;
+    top: 52%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 900;
+
+    box-sizing: border-box;
+    border-collapse: collapse;
+    table-layout: fixed;
+
+    /* .char-grid(맨 위)와 .noise는 pointer-events:none이라 클릭이 그대로
+       통과되고, 그다음 순서인 이 레이어가 클릭을 받아서 칸별 클릭을 처리한다. */
+    pointer-events: auto;
+
+    /* 드래그하는 동안 아래 텍스트/페이지가 선택되는 걸 막는다. */
+    user-select: none;
+}
+
+.rect-cell{
+    border: 1px solid transparent;
+    background-color: transparent;
+}
+
+.char-cell{
+    /* 글자는 이 칸의 크기 계산에 전혀 관여하지 않고(아래 .char-cell-text가
+       position:absolute로 흐름에서 빠져있음), 오직 위치(정중앙)만 잡는다.
+       칸 크기는 오직 sketch.js가 지정한 width/height로만 정해진다. */
+    position: relative;
+    overflow: hidden;
+
+    border: 1px solid rgb(0, 0, 0);
+}
+
+.char-cell-text{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    white-space: nowrap;
+
+    color: #000000;
+    font-family: "pyeonghwa", sans-serif;
+    font-weight: 300;
+
+
+  
+    font-size: 110px;
+
+    font-style: normal;
+    line-height: 1;
+}
+
+/* three.js가 그리는 3D 구 캔버스. 화면 전체를 덮되 배경은 투명하게 두고,
+   sketch.js가 렌더러 크기를 window와 맞춰준다. */
+#eye-sphere-canvas{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 92;
+}
+
+/* 처음 화면부터 눈 위치를 계속 추적하여, 각 눈 주변에 원형 테두리를 그려준다.
+   .pont의 마스크 원과 같은 --lx/--ly/--rx/--ry/--eye-r 값을 공유해서 위치가 어긋나지 않는다. */
+.eye-ring{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: calc(var(--eye-r, 0px) * 2);
+    height: calc(var(--eye-r, 0px) * 2);
+
+
+
+    pointer-events: none;
+    z-index: 91;
+    transform: translate(-50%, -50%);
+}
+
+.eye-ring--left{
+    left: var(--lx, -9999px);
+    top: var(--ly, -9999px);
+}
+
+.eye-ring--right{
+    left: var(--rx, -9999px);
+    top: var(--ry, -9999px);
+}
+
+/* 화면 전체를 덮는 실제 촬영본. 미러링해서 셀피처럼 자연스럽게 보이게 한다.
+   opacity는 여기서 고정하지 않으니 필요에 맞게 직접 조절하면 된다. */
 #webcam{
     position: fixed;
     top: 0;
     left: 0;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    transform: scaleX(-1);
     pointer-events: none;
+
+
+    opacity: 1;
+
+
+    z-index: 10;
+    transition: opacity 1s ease;
 }
 
+/* 눈 위치 원 2개 안에서만 보이는 촬영본. #webcam과 같은 화면을 그대로 다시 그리되,
+   투명도는 항상 1(불투명)로 고정해서 #webcam의 opacity 설정과 무관하게 원 안은 선명하게 보인다.
+   --vlx/--vly/--vrx/--vry는 --lx/--rx를 좌우로 다시 뒤집은 값이다: 이 요소 자체를
+   scaleX(-1)로 미러링하기 때문에, 뚫리는 구멍이 화면에는 결국 --lx/--rx와 같은 위치에 나타난다. */
+#webcam-eyes{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    transform: scaleX(-1);
+    pointer-events: none;
 
-
-.pont{
-    padding: 0px;
-    margin: 0px;
-
-    position:absolute;
-    top: 0%;
-    left: 0%;
-    text-align: left;
-    width: 101%;
-    height: 100%;
-
-    line-height: 1 ;
-    font-size: 35px;
-    font-family: "Gowun Batang", serif;
-
-    transform: scaleY(1);
     
-    font-weight: 700;
-    font-style: normal;
-    color: #1b32df;
-    z-index: 2;
 
+    opacity: 1;
 
+    z-index: 90;
+
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-image:
+        radial-gradient(circle var(--eye-r, 0px) at var(--vlx, -9999px) var(--vly, -9999px), #fff 70%, transparent 100%),
+        radial-gradient(circle var(--eye-r, 0px) at var(--vrx, -9999px) var(--vry, -9999px), #fff 70%, transparent 100%);
+    -webkit-mask-image:
+        radial-gradient(circle var(--eye-r, 0px) at var(--vlx, -9999px) var(--vly, -9999px), #fff 70%, transparent 100%),
+        radial-gradient(circle var(--eye-r, 0px) at var(--vrx, -9999px) var(--vry, -9999px), #fff 70%, transparent 100%);
 }
+
+
+
 
 /* 첫 화면에는 글자가 전부 보이다가, 단어를 클릭하고 3초가 지나면 이 클래스가 붙으면서
    눈(동공) 위치에 뜬 원 2개 안에서만 텍스트가 보이도록 뚫어준다. 나머지는 body의
@@ -63,21 +268,10 @@ html, body{
     mask-repeat: no-repeat;
     -webkit-mask-repeat: no-repeat;
     mask-image:
-        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 70%, transparent 100%),
-        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 70%, transparent 100%);
+        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 100%, transparent 100%),
+        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 100%, transparent 100%);
     -webkit-mask-image:
-        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 70%, transparent 100%),
-        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 70%, transparent 100%);
+        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 100%, transparent 100%),
+        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 100%, transparent 100%);
 }
 
-.pont .word{
-  cursor: pointer;
-}
-
-.pont .word:hover{
-  font-family: "Song Myung", serif;
-  font-weight: 700  ;
-  font-style: normal;
-  color: #ff0000;
-  font-size: 35px;
-}
