@@ -8,6 +8,7 @@ const geulsElement = document.querySelector('.geuls');
 const sphereCanvas = document.getElementById('eye-sphere-canvas');
 const charGridElement = document.querySelector('.char-grid');
 const rectGridElement = document.querySelector('.rect-grid');
+const questionElement = document.querySelector('.question');
 
 // .char-grid: 촬영 화면 위에 뜨는 글자 칸 그리드. 숫자 네 개만 바꾸면
 // 칸 크기(가로/세로 따로)와 가로/세로 칸 수가 즉시 반영된다.
@@ -82,6 +83,19 @@ function buildRectGrid() {
 }
 
 buildRectGrid();
+
+// .question(그 안의 .ques_1 검은 박스가 "낱말찾기" 배경)의 왼쪽 경계를
+// .char-grid(표)의 왼쪽 경계와 맞춘다. .ques_1이 .question의 첫 글자이자
+// 첫 자식이라, .question의 left만 맞추면 검은 박스 왼쪽 경계도 같이 맞는다.
+// CSS의 %/고정값 대신 실제 렌더링된 위치(getBoundingClientRect)를 그대로
+// 읽어와서 맞추므로, 칸 크기/개수나 창 크기가 바뀌어도 항상 정확히 맞는다.
+function alignQuestionWithCharGrid() {
+    if (!questionElement || !charGridElement) return;
+    questionElement.style.left = `${charGridElement.getBoundingClientRect().left}px`;
+}
+
+alignQuestionWithCharGrid();
+window.addEventListener('resize', alignQuestionWithCharGrid);
 
 // 사각형 칸을 마우스로 누른 채 드래그하면, 시작 칸에서 처음 움직인 방향
 // (위/아래/왼쪽/오른쪽 중 하나, 처음 움직인 축으로 고정)으로 정확히 3칸을
