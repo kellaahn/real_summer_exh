@@ -948,7 +948,10 @@ async function init() {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
             delegate: "GPU"
         },
-        outputFaceBlendshapes: true,
+        // 표정 계수(blendshape)는 코드 어디서도 쓰지 않는데 매 프레임 추가 연산만
+        // 발생시켜서 껐다. 얼굴/눈동자 좌표 인식에는 영향 없음 — 그만큼 매 프레임
+        // detectForVideo가 가벼워져서 드래그 반응성과 눈 추적 지연이 나아진다.
+        outputFaceBlendshapes: false,
         runningMode: "VIDEO",
         numFaces: 1
     });
