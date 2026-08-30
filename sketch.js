@@ -643,6 +643,13 @@ function initThreeScene() {
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
     `;
+    // uEdgeFeatherStart(0~1)부터 구 가장자리(r=1)까지 알파를 1→0으로 서서히 낮춰서
+    // 경계를 부드럽게 만든다. 예전에는 화면 전체 blur/contrast 필터가 이 경계까지
+    // 같이 흐려줬는데, 그 필터를 렉 때문에 지워서 경계가 딱딱해 보이게 됐다.
+    // 화면 전체를 다시 흐리는 대신, 이 작은 구의 가장자리 픽셀만(셰이더 안에서)
+    // 투명도를 낮춰 배경과 자연스럽게 섞이게 하면 비용이 거의 들지 않는다.
+    // r=1 근처는 shrink가 이미 1에 가까워서(왜곡 거의 없음) 색 자체는 배경과 맞으므로,
+    // 알파만 페이드해도 이질감 없이 비네트처럼 자연스럽게 사라진다.
     const eyeSphereFragmentShader = `
         varying vec3 vNormal;
         uniform sampler2D map;
@@ -650,6 +657,7 @@ function initThreeScene() {
         uniform vec2 uPixelsPerUV;
         uniform float uSphereRadiusPx;
         uniform float uZoomPower;
+        uniform float uEdgeFeatherStart;
         void main() {
             vec2 n = vNormal.xy;
             float r = min(length(n), 1.0);
@@ -659,7 +667,8 @@ function initThreeScene() {
                 uEyeUV.x - screenOffsetPx.x / uPixelsPerUV.x,
                 uEyeUV.y + screenOffsetPx.y / uPixelsPerUV.y
             );
-            gl_FragColor = texture2D(map, uv);
+            float edgeAlpha = 1.0 - smoothstep(uEdgeFeatherStart, 1.0, r);
+            gl_FragColor = vec4(texture2D(map, uv).rgb, edgeAlpha);
         }
     `;
 
@@ -670,10 +679,14 @@ function initThreeScene() {
                 uEyeUV: { value: new THREE.Vector2(0.5, 0.5) },
                 uPixelsPerUV: { value: new THREE.Vector2(1, 1) },
                 uSphereRadiusPx: { value: 0 },
-                uZoomPower: { value: EYE_SPHERE_ZOOM_POWER }
+                uZoomPower: { value: EYE_SPHERE_ZOOM_POWER },
+                // 숫자를 낮추면(예: 0.6) 더 일찍부터 흐려지기 시작해서 경계가 더 넓고
+                // 모호해지고, 1에 가까울수록(예: 0.95) 경계가 좁고 또렷해진다.
+                uEdgeFeatherStart: { value: 0.8 }
             },
             vertexShader: eyeSphereVertexShader,
-            fragmentShader: eyeSphereFragmentShader
+            fragmentShader: eyeSphereFragmentShader,
+            transparent: true
         });
     }
 
