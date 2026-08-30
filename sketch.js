@@ -12,19 +12,22 @@ const questionElement = document.querySelector('.question');
 
 // .char-grid: 촬영 화면 위에 뜨는 글자 칸 그리드. 숫자 네 개만 바꾸면
 // 칸 크기(가로/세로 따로)와 가로/세로 칸 수가 즉시 반영된다.
-const CHAR_GRID_COLS = 12; // <- 가로 칸 수
+// 칸 크기는 px 고정값 대신 vh(화면 높이 비율)로 둬서, 맥북(14인치)이든
+// 아이맥(27인치)이든 화면이 바뀌어도 항상 같은 비율로 보이게 한다.
+// 기준: 맥북 14인치 기본 해상도 1512x982에서 105px였던 칸 크기 = 105/982*100vh.
+const CHAR_GRID_COLS = 13; // <- 가로 칸 수
 const CHAR_GRID_ROWS = 7; // <- 세로 칸 수
-const CHAR_GRID_CELL_WIDTH = 105; // <- 칸 한 개의 너비(px)
-const CHAR_GRID_CELL_HEIGHT = 105; // <- 칸 한 개의 높이(px)
+const CHAR_GRID_CELL_WIDTH_VH = 105 / 982 * 100; // <- 칸 한 개의 너비(vh)
+const CHAR_GRID_CELL_HEIGHT_VH = 105 / 982 * 100; // <- 칸 한 개의 높이(vh)
 
 function buildCharGrid() {
     if (!charGridElement) return;
 
     // table-layout:fixed는 셀 하나하나의 width/height가 아니라 테이블
     // 전체 크기를 열/행 개수로 나눠서 칸 크기를 정하므로, 전체 크기를
-    // 여기서 직접 계산해서 지정해야 CHAR_GRID_CELL_WIDTH/HEIGHT가 먹힌다.
-    charGridElement.style.width = `${CHAR_GRID_COLS * CHAR_GRID_CELL_WIDTH}px`;
-    charGridElement.style.height = `${CHAR_GRID_ROWS * CHAR_GRID_CELL_HEIGHT}px`;
+    // 여기서 직접 계산해서 지정해야 CHAR_GRID_CELL_WIDTH_VH/HEIGHT_VH가 먹힌다.
+    charGridElement.style.width = `${CHAR_GRID_COLS * CHAR_GRID_CELL_WIDTH_VH}vh`;
+    charGridElement.style.height = `${CHAR_GRID_ROWS * CHAR_GRID_CELL_HEIGHT_VH}vh`;
 
     const tbody = charGridElement.querySelector('tbody');
     tbody.innerHTML = '';
@@ -34,8 +37,8 @@ function buildCharGrid() {
         for (let c = 0; c < CHAR_GRID_COLS; c++) {
             const cell = document.createElement('td');
             cell.className = 'char-cell';
-            cell.style.width = `${CHAR_GRID_CELL_WIDTH}px`;
-            cell.style.height = `${CHAR_GRID_CELL_HEIGHT}px`;
+            cell.style.width = `${CHAR_GRID_CELL_WIDTH_VH}vh`;
+            cell.style.height = `${CHAR_GRID_CELL_HEIGHT_VH}vh`;
 
             // 글자는 이 span(position:absolute)에 넣는다. 흐름에서 빠져 있어서
             // 글자 크기/내용이 td(칸) 크기에 전혀 영향을 주지 않고, 칸 정중앙에
@@ -60,8 +63,8 @@ function buildRectGrid() {
 
     // buildCharGrid와 완전히 같은 계산식/같은 표 구조(<table>+border-collapse)라서
     // 크기가 항상 표와 정확히 겹친다.
-    rectGridElement.style.width = `${CHAR_GRID_COLS * CHAR_GRID_CELL_WIDTH}px`;
-    rectGridElement.style.height = `${CHAR_GRID_ROWS * CHAR_GRID_CELL_HEIGHT}px`;
+    rectGridElement.style.width = `${CHAR_GRID_COLS * CHAR_GRID_CELL_WIDTH_VH}vh`;
+    rectGridElement.style.height = `${CHAR_GRID_ROWS * CHAR_GRID_CELL_HEIGHT_VH}vh`;
 
     const tbody = rectGridElement.querySelector('tbody');
     tbody.innerHTML = '';
@@ -71,8 +74,8 @@ function buildRectGrid() {
         for (let c = 0; c < CHAR_GRID_COLS; c++) {
             const cell = document.createElement('td');
             cell.className = 'rect-cell';
-            cell.style.width = `${CHAR_GRID_CELL_WIDTH}px`;
-            cell.style.height = `${CHAR_GRID_CELL_HEIGHT}px`;
+            cell.style.width = `${CHAR_GRID_CELL_WIDTH_VH}vh`;
+            cell.style.height = `${CHAR_GRID_CELL_HEIGHT_VH}vh`;
             // 드래그 중에 이 칸이 "정답 칸"인지 확인할 때 쓴다.
             cell.dataset.row = r;
             cell.dataset.col = c;
@@ -292,6 +295,7 @@ setRectGridCell(0, 8, '#ffffff')
 setRectGridCell(0, 9, '#ffffff')
 setRectGridCell(0, 10, '#ffffff')
 setRectGridCell(0, 11, '#ffffff')
+setRectGridCell(0, 12, '#ffffff')
 
 setRectGridCell(1, 0, '#ffffff')
 setRectGridCell(1, 1, '#ffffff')
@@ -305,6 +309,7 @@ setRectGridCell(1, 8, '#ffffff')
 setRectGridCell(1, 9, '#ffffff')
 setRectGridCell(1, 10, '#ffffff')
 setRectGridCell(1, 11, '#ffffff')
+setRectGridCell(1, 12, '#ffffff')
 
 setRectGridCell(2, 0, '#ffffff')
 setRectGridCell(2, 1, '#ffffff')
@@ -318,6 +323,7 @@ setRectGridCell(2, 8, '#ffffff')
 setRectGridCell(2, 9, '#ffffff')
 setRectGridCell(2, 10, '#ffffff')
 setRectGridCell(2, 11, '#ffffff')
+setRectGridCell(2, 12, '#ffffff')
 
 setRectGridCell(3, 0, '#ffffff')
 setRectGridCell(3, 1, '#ffffff')
@@ -331,6 +337,7 @@ setRectGridCell(3, 8, '#ffffff')
 setRectGridCell(3, 9, '#ffffff')
 setRectGridCell(3, 10, '#ffffff')
 setRectGridCell(3, 11, '#ffffff')
+setRectGridCell(3, 12, '#ffffff')
 
 setRectGridCell(4, 0, '#ffffff')
 setRectGridCell(4, 1, '#ffffff')
@@ -344,6 +351,7 @@ setRectGridCell(4, 8, '#ffffff')
 setRectGridCell(4, 9, '#ffffff')
 setRectGridCell(4, 10, '#ffffff')
 setRectGridCell(4, 11, '#ffffff')
+setRectGridCell(4, 12, '#ffffff')
 
 setRectGridCell(5, 0, '#ffffff')
 setRectGridCell(5, 1, '#ffffff')
@@ -357,6 +365,7 @@ setRectGridCell(5, 8, '#ffffff')
 setRectGridCell(5, 9, '#ffffff')
 setRectGridCell(5, 10, '#ffffff')
 setRectGridCell(5, 11, '#ffffff')
+setRectGridCell(5, 12, '#ffffff')
 
 setRectGridCell(6, 0, '#ffffff')
 setRectGridCell(6, 1, '#ffffff')
@@ -370,6 +379,7 @@ setRectGridCell(6, 8, '#ffffff')
 setRectGridCell(6, 9, '#ffffff')
 setRectGridCell(6, 10, '#ffffff')
 setRectGridCell(6, 11, '#ffffff')
+setRectGridCell(6, 12, '#ffffff')
 
 
 setCharGridCell(0, 0, '고')
@@ -384,6 +394,7 @@ setCharGridCell(0, 8, '어')
 setCharGridCell(0, 9, '구')
 setCharGridCell(0, 10, '고')
 setCharGridCell(0, 11, '아')
+setCharGridCell(0, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(1, 0, '등')
 setCharGridCell(1, 1, '고')
@@ -397,6 +408,7 @@ setCharGridCell(1, 8, '등')
 setCharGridCell(1, 9, '일')
 setCharGridCell(1, 10, '어')
 setCharGridCell(1, 11, '고')
+setCharGridCell(1, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(2, 0, '원')
 setCharGridCell(2, 1, '고')
@@ -410,6 +422,7 @@ setCharGridCell(2, 8, '고')
 setCharGridCell(2, 9, '등')
 setCharGridCell(2, 10, '곤')
 setCharGridCell(2, 11, '등')
+setCharGridCell(2, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(3, 0, '구')
 setCharGridCell(3, 1, '등')
@@ -423,6 +436,7 @@ setCharGridCell(3, 8, '어')
 setCharGridCell(3, 9, '곤')
 setCharGridCell(3, 10, '골')
 setCharGridCell(3, 11, '어')
+setCharGridCell(3, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(4, 0, '월')
 setCharGridCell(4, 1, '어')
@@ -436,6 +450,7 @@ setCharGridCell(4, 8, '워')
 setCharGridCell(4, 9, '고')
 setCharGridCell(4, 10, '구')
 setCharGridCell(4, 11, '고')
+setCharGridCell(4, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(5, 0, '구')
 setCharGridCell(5, 1, '기')
@@ -449,6 +464,7 @@ setCharGridCell(5, 8, '고')
 setCharGridCell(5, 9, '등')
 setCharGridCell(5, 10, '어')
 setCharGridCell(5, 11, '이')
+setCharGridCell(5, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(6, 0, '갈')
 setCharGridCell(6, 1, '고')
@@ -462,6 +478,7 @@ setCharGridCell(6, 8, '고')
 setCharGridCell(6, 9, '든')
 setCharGridCell(6, 10, '이')
 setCharGridCell(6, 11, '가')
+setCharGridCell(6, 12, '') // <- 여기에 글자 채우기
 
 
 
@@ -580,7 +597,7 @@ const RIGHT_EYE_OUTER = 263;
 const EYE_HOLE_RADIUS_MULTIPLIER = 1; // <- 눈 폭 대비 구멍 반지름. 숫자만 바꾸면 즉시 반영된다.
 const EYE_HOLE_SPACING_MULTIPLIER = 1; // <- 두 원 사이 간격. 1이면 원 중심이 동공 중심과 정확히 일치한다.
 const EYE_SPHERE_RADIUS_MULTIPLIER = 1; // <- --eye-r 대비 구 반지름. 1이어야 셰이더의 왜곡 0 지점(r=1)이 눈에 보이는 원(링/마스크) 경계와 정확히 겹친다.
-const EYE_SPHERE_ZOOM_POWER = 2.7; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다.
+const EYE_SPHERE_ZOOM_POWER = 2.2; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다.
 
 // 화면 픽셀 좌표를 그대로 world 좌표로 쓰기 위한 직교 카메라. left=0,right=dw,top=0,bottom=dh로
 // 두면 화면처럼 원점이 왼쪽 위, y가 아래로 증가하는 좌표계가 그대로 맞아떨어진다.
@@ -816,6 +833,13 @@ window.resetSolvedRectCells = resetSolvedRectCells;
 // 반복해서 초기화하지 않으려고 이 플래그로 전환 시점만 잡아낸다.
 let eyesWereVisible = false;
 
+// 눈이 안 보이기 시작한 순간, 얼마나 계속 안 보여야 첫 화면(진행 상태 초기화)으로
+// 되돌릴지 정하는 유예 시간(ms). 깜빡임이나 순간적인 인식 실패, 화면 가장자리를
+// 살짝 스치는 정도로는 초기화되지 않도록 완화하는 용도. 숫자를 늘리면 더 관대해진다.
+const EYE_LOST_RESET_GRACE_MS = 1200;
+// 눈이 마지막으로 안 보이기 "시작"한 시각(ms). 계속 보이는 동안은 null.
+let eyesLostSince = null;
+
 // 눈(홍채) 위치를 화면 좌표로 변환해 마스크 구멍 위치/반경과 눈 확대 구를 갱신한다.
 // 좌표 자체는 미러링 변환이 없으므로, 여기서는 화면에 실제로 보이는(미러링된) 좌표로 바꿔서 쓴다.
 // .pont가 없어도(지금처럼 .geuls로 대체된 경우) 눈 추적/확대는 계속 동작해야 하므로
@@ -826,14 +850,21 @@ function updateEyeReveal(landmarks) {
     if (!landmarks || !vw || !vh) {
         document.documentElement.style.setProperty('--eye-r', '0px');
         disableEyeSpheres();
-        // 눈이 화면에서 사라진 그 순간에만 사각형 칸들을 흰색으로 되돌린다.
+        // 눈이 안 보이기 시작한 순간부터 EYE_LOST_RESET_GRACE_MS(ms) 이상
+        // 계속 안 보일 때만 사각형 칸들을 흰색으로 되돌린다. 그 안에 눈이
+        // 다시 잡히면(아래 eyesLostSince = null) 초기화 없이 진행 상태가 유지된다.
         if (eyesWereVisible) {
-            resetSolvedRectCells();
-            eyesWereVisible = false;
+            if (eyesLostSince === null) eyesLostSince = performance.now();
+            if (performance.now() - eyesLostSince >= EYE_LOST_RESET_GRACE_MS) {
+                resetSolvedRectCells();
+                eyesWereVisible = false;
+                eyesLostSince = null;
+            }
         }
         return;
     }
     eyesWereVisible = true;
+    eyesLostSince = null;
 
     const dw = window.innerWidth;
     const dh = window.innerHeight;

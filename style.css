@@ -19,7 +19,9 @@ html, body{
   top:6%;
   left:7.2%;
 
-  font-size: 26px;
+  /* 맥북 14인치 기준(1512x982) 26px = 26/982*100vh. px 고정값 대신 vh로
+     둬서 아이맥(27인치) 등 다른 화면에서도 같은 비율로 보이게 한다. */
+  font-size: 2.6477vh;
 
   font-family: "Noto Sans KR", sans-serif;
   font-optical-sizing: auto;
@@ -59,7 +61,7 @@ html, body{
 
     backdrop-filter: saturate(0.2);
 
-    filter: contrast(186%) blur(2.1px);
+    filter: contrast(126%) blur(2.1px);
     z-index: 800;
     pointer-events: none;
 
@@ -163,8 +165,11 @@ html, body{
     font-weight: 300;
 
 
-  
-    font-size: 110px;
+
+    /* 맥북 14인치 기준(1512x982) 110px = 110/982*100vh. sketch.js의
+       CHAR_GRID_CELL_WIDTH_VH/HEIGHT_VH와 같은 기준으로 맞춰서 화면이
+       바뀌어도 칸 크기 대비 글자 크기 비율이 그대로 유지된다. */
+    font-size: 11.2016vh;
 
     font-style: normal;
     line-height: 1;
