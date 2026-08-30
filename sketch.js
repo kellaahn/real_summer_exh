@@ -682,7 +682,7 @@ function initThreeScene() {
                 uZoomPower: { value: EYE_SPHERE_ZOOM_POWER },
                 // 숫자를 낮추면(예: 0.6) 더 일찍부터 흐려지기 시작해서 경계가 더 넓고
                 // 모호해지고, 1에 가까울수록(예: 0.95) 경계가 좁고 또렷해진다.
-                uEdgeFeatherStart: { value: 0.8 }
+                uEdgeFeatherStart: { value: 0.65 }
             },
             vertexShader: eyeSphereVertexShader,
             fragmentShader: eyeSphereFragmentShader,
