@@ -194,8 +194,11 @@ if (rectGridElement) {
         // 여기서는 아직 드래그를 시작하지 않는다. mousemove에서 문턱값을
         // 넘는 순간에야 방향이 정해지면서 실제로 드래그가 시작된다.
         pendingDrag = { startX: e.clientX, startY: e.clientY, row: Number(cell.dataset.row), col: Number(cell.dataset.col) };
-    });
+    }, { passive: true });
 
+    // passive:true로 등록하면 브라우저가 "이 리스너는 preventDefault를 호출하지
+    // 않는다"는 걸 미리 알아서, 스크롤/입력 처리를 리스너 실행과 동기적으로
+    // 기다리지 않고 더 빨리 넘길 수 있다(실제로 여기서 preventDefault를 쓰지 않으므로 안전).
     window.addEventListener('mousemove', (e) => {
         if (!pendingDrag || isDraggingRectCell) return;
         const dx = e.clientX - pendingDrag.startX;
@@ -214,7 +217,7 @@ if (rectGridElement) {
             paintDragCell(0);
             dragProgressIndex = 1;
         }
-    });
+    }, { passive: true });
 
     rectGridElement.addEventListener('mouseover', (e) => {
         if (!isDraggingRectCell || dragProgressIndex >= dragPath.length) return;
@@ -241,7 +244,7 @@ if (rectGridElement) {
                 });
             }, SOLVED_REVEAL_DELAY_MS);
         }
-    });
+    }, { passive: true });
 
     // mouseup은 그리드 밖에서 손을 놓을 수도 있으니 window 전체에서 받는다.
     window.addEventListener('mouseup', () => {
@@ -264,7 +267,7 @@ if (rectGridElement) {
         dragWasSolved = false;
         dragProgressIndex = 0;
         pendingDrag = null;
-    });
+    }, { passive: true });
 }
 
 // (row, col)은 0부터 시작. 해당 칸 사각형의 배경색을 바꾼다(어떤 CSS color든 가능:
@@ -612,7 +615,9 @@ function initThreeScene() {
     threeCamera = new THREE.OrthographicCamera(0, dw, 0, dh, 0.1, 2000);
     threeCamera.position.z = 1000;
 
-    threeRenderer = new THREE.WebGLRenderer({ canvas: sphereCanvas, alpha: true, antialias: true });
+    // antialias는 화면에서 크게 확대돼 보이는 형태에는 의미가 있지만, 눈동자 크기의
+    // 작은 구 2개에는 차이가 거의 안 보이면서 매 프레임 GPU 비용만 추가된다.
+    threeRenderer = new THREE.WebGLRenderer({ canvas: sphereCanvas, alpha: true, antialias: false });
     // 아이맥(5K) 등 devicePixelRatio가 높은 화면에서는 그대로 쓰면 렌더링 픽셀 수가
     // 급격히 늘어나 렉이 생긴다. 눈동자 구는 화면에서 작게 보이는 요소라 1.5로
     // 캡을 씌워도 체감 화질 차이는 거의 없다.
@@ -672,7 +677,10 @@ function initThreeScene() {
         });
     }
 
-    const sphereGeometry = new THREE.SphereGeometry(1, 48, 48);
+    // 세그먼트 48x48은 화면에 작게 보이는 구 하나에는 과한 정점 수라 32x32로 줄임.
+    // 셰이딩은 프래그먼트 셰이더가 담당하므로(vNormal 기반) 윤곽선 둥근 정도만
+    // 영향을 받고, 이 정도 화면 크기에서는 육안으로 차이가 안 보인다.
+    const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
     sphereLeft = new THREE.Mesh(sphereGeometry, makeEyeSphereMaterial());
     sphereRight = new THREE.Mesh(sphereGeometry, makeEyeSphereMaterial());
     sphereLeft.scale.set(0, 0, 0);
@@ -689,8 +697,13 @@ function initThreeScene() {
     });
 }
 
-// 눈이 인식되지 않을 때 구를 완전히 숨긴다.
+// 눈이 인식되지 않을 때 구를 완전히 숨긴다. 이미 숨겨진 상태에서 계속 호출돼도
+// (얼굴이 안 보이는 동안 매 프레임 호출됨) 다시 그리지 않도록 skipIfAlreadyHidden로
+// 막아서, 얼굴이 안 보이는 동안 매 프레임 헛도는 렌더 호출을 없앤다.
+let eyeSpheresHidden = false;
 function disableEyeSpheres() {
+    if (eyeSpheresHidden) return;
+    eyeSpheresHidden = true;
     if (!sphereLeft || !sphereRight) return;
     sphereLeft.scale.set(0, 0, 0);
     sphereRight.scale.set(0, 0, 0);
@@ -867,6 +880,7 @@ function updateEyeReveal(landmarks) {
     }
     eyesWereVisible = true;
     eyesLostSince = null;
+    eyeSpheresHidden = false;
 
     const dw = window.innerWidth;
     const dh = window.innerHeight;
@@ -947,7 +961,11 @@ async function init() {
         runningMode: "VIDEO",
         numFaces: 1
     });
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } } });
+    // 1920x1080 대신 1280x720으로 요청. 얼굴 인식 모델은 내부적으로 프레임을 훨씬
+    // 작은 고정 크기로 다시 리사이즈해서 쓰기 때문에 인식 자체의 정확도 차이는
+    // 거의 없고, 그 리사이즈 전 단계(디코드/복사/GPU 업로드)에 드는 비용만 줄어든다.
+    // 다만 화면을 꽉 채워 표시하는 원본 영상 자체는 그만큼 살짝 덜 선명해질 수 있다.
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
     videoElement.srcObject = stream;
     videoElement.addEventListener('loadeddata', () => {
         requestAnimationFrame(renderLoop);
