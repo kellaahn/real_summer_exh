@@ -38,44 +38,6 @@ html, body{
 }
 
 
-.noise {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-
-    pointer-events: none;
-    z-index: 998;
-
-    opacity: 0.3;
-
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1 ' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
-
-    
-}
-    
-
-.filter{
-    position: fixed;
-    inset: 0;
-
-    /* 아이맥(5K) 등 고해상도 화면에서 backdrop-filter/blur가 화면 전체 픽셀 수만큼
-       매 프레임 다시 계산되면서 심한 렉을 유발해 완전히 제거함. */
-    z-index: 800;
-    pointer-events: none;
-
-}
-
-/*
-
-
-
-
-
-
-
-
-
 /* 촬영 화면(#webcam 등)보다 앞에 떠 있는 진짜 <table> 그리드. div+grid로
    칸마다 따로 border를 그리면 맞닿은 칸끼리 두 겹이 되어 안쪽 선이 바깥
    테두리보다 두꺼워지는데, table은 border-collapse로 맞닿은 선을 자동으로
@@ -128,7 +90,7 @@ html, body{
     border-collapse: collapse;
     table-layout: fixed;
 
-    /* .char-grid(맨 위)와 .noise는 pointer-events:none이라 클릭이 그대로
+    /* .char-grid(맨 위)는 pointer-events:none이라 클릭이 그대로
        통과되고, 그다음 순서인 이 레이어가 클릭을 받아서 칸별 클릭을 처리한다. */
     pointer-events: auto;
 
@@ -190,8 +152,7 @@ html, body{
     z-index: 10;
 }
 
-/* 처음 화면부터 눈 위치를 계속 추적하여, 각 눈 주변에 원형 테두리를 그려준다.
-   .pont의 마스크 원과 같은 --lx/--ly/--rx/--ry/--eye-r 값을 공유해서 위치가 어긋나지 않는다. */
+/* 처음 화면부터 눈 위치를 계속 추적하여, 각 눈 주변에 원형 테두리를 그려준다. */
 .eye-ring{
     position: fixed;
     top: 0;
@@ -230,22 +191,5 @@ html, body{
     opacity: 0;
     pointer-events: none;
     z-index: -1;
-}
-
-
-
-
-/* 첫 화면에는 글자가 전부 보이다가, 단어를 클릭하고 3초가 지나면 이 클래스가 붙으면서
-   눈(동공) 위치에 뜬 원 2개 안에서만 텍스트가 보이도록 뚫어준다. 나머지는 body의
-   검은 배경이 그대로 드러난다. */
-.pont.eye-mask{
-    mask-repeat: no-repeat;
-    -webkit-mask-repeat: no-repeat;
-    mask-image:
-        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 100%, transparent 100%),
-        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 100%, transparent 100%);
-    -webkit-mask-image:
-        radial-gradient(circle var(--eye-r, 0px) at var(--lx, 50%) var(--ly, 50%), #fff 100%, transparent 100%),
-        radial-gradient(circle var(--eye-r, 0px) at var(--rx, 50%) var(--ry, 50%), #fff 100%, transparent 100%);
 }
 

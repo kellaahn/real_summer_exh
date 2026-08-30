@@ -2,8 +2,6 @@ import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
 const videoElement = document.getElementById('webcam');
-const pontElement = document.querySelector('.pont');
-const geulsElement = document.querySelector('.geuls');
 const sphereCanvas = document.getElementById('eye-sphere-canvas');
 const charGridElement = document.querySelector('.char-grid');
 const rectGridElement = document.querySelector('.rect-grid');
@@ -927,95 +925,6 @@ initThreeScene();
 let faceLandmarker;
 let lastVideoTime = -1;
 
-// 눈 위치 측정은 처음부터 계속 돌아가지만, 마스크(원 뚫기)는 단어를 처음 클릭하고
-// 3초가 지나야 화면에 나타난다.
-const REVEAL_DELAY_MS = 3000;
-let eyeRevealTriggered = false;
-
-// 단어별로 span을 씌워서 마우스를 올린 단어만 폰트를 바꿀 수 있게 한다.
-function wrapWordsInSpans(el) {
-    const tokens = el.textContent.split(/(\s+)/);
-    el.innerHTML = '';
-    for (const token of tokens) {
-        if (token === '' || /^\s+$/.test(token)) {
-            el.appendChild(document.createTextNode(token));
-        } else {
-            const span = document.createElement('span');
-            span.className = 'word';
-            span.textContent = token;
-            el.appendChild(span);
-        }
-    }
-}
-
-// 클릭한 단어를 기준으로 가까운 단어부터 순서대로 클릭한 단어로 바꾼다.
-const WORD_SPREAD_STEP_MS = 40;
-
-function spreadWordFromClick(clickedSpan) {
-    const words = Array.from(pontElement.querySelectorAll('.word'));
-    const clickedIndex = words.indexOf(clickedSpan);
-    const clickedText = clickedSpan.textContent;
-
-    words.forEach((word, i) => {
-        if (i === clickedIndex) return;
-        const distance = Math.abs(i - clickedIndex);
-        setTimeout(() => {
-            word.textContent = clickedText;
-        }, distance * WORD_SPREAD_STEP_MS);
-    });
-}
-
-if (pontElement) {
-    wrapWordsInSpans(pontElement);
-    pontElement.addEventListener('click', (e) => {
-        const clickedSpan = e.target.closest('.word');
-        if (!clickedSpan) return;
-        spreadWordFromClick(clickedSpan);
-
-        if (!eyeRevealTriggered) {
-            eyeRevealTriggered = true;
-            setTimeout(() => {
-                pontElement.classList.add('eye-mask');
-            }, REVEAL_DELAY_MS);
-        }
-    });
-}
-
-// geul 단어를 누르면, 클릭한 단어와 가까운(그리드상 거리) 단어부터 순서대로
-// "고등어"로 바뀐다.
-const GEUL_TARGET_WORD = '고등어';
-const GEUL_SPREAD_STEP_MS = 900; // <- 단어 사이 전파 속도. 숫자만 바꾸면 즉시 반영된다.
-const GEUL_GRID_COLUMNS = 4;
-let geulSpreadTriggered = false;
-
-function spreadGeulFromClick(clickedWord) {
-    const words = Array.from(geulsElement.querySelectorAll('.geuls > div'));
-    const clickedIndex = words.indexOf(clickedWord);
-    if (clickedIndex === -1) return;
-
-    const clickedRow = Math.floor(clickedIndex / GEUL_GRID_COLUMNS);
-    const clickedCol = clickedIndex % GEUL_GRID_COLUMNS;
-
-    words.forEach((word, i) => {
-        const row = Math.floor(i / GEUL_GRID_COLUMNS);
-        const col = i % GEUL_GRID_COLUMNS;
-        const distance = Math.hypot(row - clickedRow, col - clickedCol);
-
-        setTimeout(() => {
-            word.textContent = GEUL_TARGET_WORD;
-        }, distance * GEUL_SPREAD_STEP_MS);
-    });
-}
-
-if (geulsElement) {
-    geulsElement.addEventListener('click', (e) => {
-        const clickedWord = e.target.closest('.geuls > div');
-        if (!clickedWord || geulSpreadTriggered) return;
-        geulSpreadTriggered = true;
-        spreadGeulFromClick(clickedWord);
-    });
-}
-
 // 사각형 칸 중 이미 "고등어" 정답으로 확인돼서 투명해진 칸들을 전부 원래
 // 흰색으로 되돌린다. 사람 눈이 화면에서 사라졌을 때 게임 진행 상태를
 // 초기화하는 용도로 쓴다.
@@ -1046,8 +955,6 @@ let eyesLostSince = null;
 
 // 눈(홍채) 위치를 화면 좌표로 변환해 마스크 구멍 위치/반경과 눈 확대(bulge) 효과를 갱신한다.
 // 좌표 자체는 미러링 변환이 없으므로, 여기서는 화면에 실제로 보이는(미러링된) 좌표로 바꿔서 쓴다.
-// .pont가 없어도(지금처럼 .geuls로 대체된 경우) 눈 추적/확대는 계속 동작해야 하므로
-// pontElement 존재 여부로 이 함수 전체를 막지 않는다.
 function updateEyeReveal(landmarks) {
     const vw = videoElement.videoWidth;
     const vh = videoElement.videoHeight;
