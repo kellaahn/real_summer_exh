@@ -614,7 +614,10 @@ function initThreeScene() {
     threeCamera.position.z = 1000;
 
     threeRenderer = new THREE.WebGLRenderer({ canvas: sphereCanvas, alpha: true, antialias: true });
-    threeRenderer.setPixelRatio(window.devicePixelRatio || 1);
+    // 아이맥(5K) 등 devicePixelRatio가 높은 화면에서는 그대로 쓰면 렌더링 픽셀 수가
+    // 급격히 늘어나 렉이 생긴다. 눈동자 구는 화면에서 작게 보이는 요소라 1.5로
+    // 캡을 씌워도 체감 화질 차이는 거의 없다.
+    threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     threeRenderer.setSize(dw, dh);
     threeRenderer.outputColorSpace = THREE.SRGBColorSpace;
 

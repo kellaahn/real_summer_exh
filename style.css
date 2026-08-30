@@ -59,9 +59,8 @@ html, body{
     position: fixed;
     inset: 0;
 
-    backdrop-filter: saturate(0.2);
-
-    filter: contrast(126%) blur(2.1px);
+    /* 아이맥(5K) 등 고해상도 화면에서 backdrop-filter/blur가 화면 전체 픽셀 수만큼
+       매 프레임 다시 계산되면서 심한 렉을 유발해 완전히 제거함. */
     z-index: 800;
     pointer-events: none;
 
