@@ -16,7 +16,7 @@ html, body{
 
 .question{
   position: fixed;
-  top:6%;
+  top:6.3%;
   left:7.2%;
 
   /* 맥북 14인치 기준(1512x982) 26px = 26/982*100vh. px 고정값 대신 vh로

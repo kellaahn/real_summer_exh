@@ -15,7 +15,7 @@ const questionElement = document.querySelector('.question');
 // 칸 크기는 px 고정값 대신 vh(화면 높이 비율)로 둬서, 맥북(14인치)이든
 // 아이맥(27인치)이든 화면이 바뀌어도 항상 같은 비율로 보이게 한다.
 // 기준: 맥북 14인치 기본 해상도 1512x982에서 105px였던 칸 크기 = 105/982*100vh.
-const CHAR_GRID_COLS = 13; // <- 가로 칸 수
+const CHAR_GRID_COLS = 12; // <- 가로 칸 수
 const CHAR_GRID_ROWS = 7; // <- 세로 칸 수
 const CHAR_GRID_CELL_WIDTH_VH = 105 / 982 * 100; // <- 칸 한 개의 너비(vh)
 const CHAR_GRID_CELL_HEIGHT_VH = 105 / 982 * 100; // <- 칸 한 개의 높이(vh)
@@ -295,7 +295,6 @@ setRectGridCell(0, 8, '#ffffff')
 setRectGridCell(0, 9, '#ffffff')
 setRectGridCell(0, 10, '#ffffff')
 setRectGridCell(0, 11, '#ffffff')
-setRectGridCell(0, 12, '#ffffff')
 
 setRectGridCell(1, 0, '#ffffff')
 setRectGridCell(1, 1, '#ffffff')
@@ -309,7 +308,6 @@ setRectGridCell(1, 8, '#ffffff')
 setRectGridCell(1, 9, '#ffffff')
 setRectGridCell(1, 10, '#ffffff')
 setRectGridCell(1, 11, '#ffffff')
-setRectGridCell(1, 12, '#ffffff')
 
 setRectGridCell(2, 0, '#ffffff')
 setRectGridCell(2, 1, '#ffffff')
@@ -323,7 +321,6 @@ setRectGridCell(2, 8, '#ffffff')
 setRectGridCell(2, 9, '#ffffff')
 setRectGridCell(2, 10, '#ffffff')
 setRectGridCell(2, 11, '#ffffff')
-setRectGridCell(2, 12, '#ffffff')
 
 setRectGridCell(3, 0, '#ffffff')
 setRectGridCell(3, 1, '#ffffff')
@@ -337,7 +334,6 @@ setRectGridCell(3, 8, '#ffffff')
 setRectGridCell(3, 9, '#ffffff')
 setRectGridCell(3, 10, '#ffffff')
 setRectGridCell(3, 11, '#ffffff')
-setRectGridCell(3, 12, '#ffffff')
 
 setRectGridCell(4, 0, '#ffffff')
 setRectGridCell(4, 1, '#ffffff')
@@ -351,7 +347,6 @@ setRectGridCell(4, 8, '#ffffff')
 setRectGridCell(4, 9, '#ffffff')
 setRectGridCell(4, 10, '#ffffff')
 setRectGridCell(4, 11, '#ffffff')
-setRectGridCell(4, 12, '#ffffff')
 
 setRectGridCell(5, 0, '#ffffff')
 setRectGridCell(5, 1, '#ffffff')
@@ -365,7 +360,6 @@ setRectGridCell(5, 8, '#ffffff')
 setRectGridCell(5, 9, '#ffffff')
 setRectGridCell(5, 10, '#ffffff')
 setRectGridCell(5, 11, '#ffffff')
-setRectGridCell(5, 12, '#ffffff')
 
 setRectGridCell(6, 0, '#ffffff')
 setRectGridCell(6, 1, '#ffffff')
@@ -379,7 +373,6 @@ setRectGridCell(6, 8, '#ffffff')
 setRectGridCell(6, 9, '#ffffff')
 setRectGridCell(6, 10, '#ffffff')
 setRectGridCell(6, 11, '#ffffff')
-setRectGridCell(6, 12, '#ffffff')
 
 
 setCharGridCell(0, 0, '고')
@@ -394,7 +387,6 @@ setCharGridCell(0, 8, '어')
 setCharGridCell(0, 9, '구')
 setCharGridCell(0, 10, '고')
 setCharGridCell(0, 11, '아')
-setCharGridCell(0, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(1, 0, '등')
 setCharGridCell(1, 1, '고')
@@ -408,7 +400,6 @@ setCharGridCell(1, 8, '등')
 setCharGridCell(1, 9, '일')
 setCharGridCell(1, 10, '어')
 setCharGridCell(1, 11, '고')
-setCharGridCell(1, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(2, 0, '원')
 setCharGridCell(2, 1, '고')
@@ -422,7 +413,6 @@ setCharGridCell(2, 8, '고')
 setCharGridCell(2, 9, '등')
 setCharGridCell(2, 10, '곤')
 setCharGridCell(2, 11, '등')
-setCharGridCell(2, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(3, 0, '구')
 setCharGridCell(3, 1, '등')
@@ -436,7 +426,6 @@ setCharGridCell(3, 8, '어')
 setCharGridCell(3, 9, '곤')
 setCharGridCell(3, 10, '골')
 setCharGridCell(3, 11, '어')
-setCharGridCell(3, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(4, 0, '월')
 setCharGridCell(4, 1, '어')
@@ -450,7 +439,6 @@ setCharGridCell(4, 8, '워')
 setCharGridCell(4, 9, '고')
 setCharGridCell(4, 10, '구')
 setCharGridCell(4, 11, '고')
-setCharGridCell(4, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(5, 0, '구')
 setCharGridCell(5, 1, '기')
@@ -464,7 +452,6 @@ setCharGridCell(5, 8, '고')
 setCharGridCell(5, 9, '등')
 setCharGridCell(5, 10, '어')
 setCharGridCell(5, 11, '이')
-setCharGridCell(5, 12, '') // <- 여기에 글자 채우기
 
 setCharGridCell(6, 0, '갈')
 setCharGridCell(6, 1, '고')
@@ -478,7 +465,6 @@ setCharGridCell(6, 8, '고')
 setCharGridCell(6, 9, '든')
 setCharGridCell(6, 10, '이')
 setCharGridCell(6, 11, '가')
-setCharGridCell(6, 12, '') // <- 여기에 글자 채우기
 
 
 
