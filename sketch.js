@@ -2,7 +2,6 @@ import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
 const videoElement = document.getElementById('webcam');
-const eyesVideoElement = document.getElementById('webcam-eyes');
 const pontElement = document.querySelector('.pont');
 const geulsElement = document.querySelector('.geuls');
 const sphereCanvas = document.getElementById('eye-sphere-canvas');
@@ -909,13 +908,6 @@ function updateEyeReveal(landmarks) {
     root.setProperty('--ry', `${rightEye.y}px`);
     root.setProperty('--eye-r', `${radius}px`);
 
-    // #webcam-eyes는 scaleX(-1)로 화면 전체가 미러링되므로, 마스크 구멍은 미러링되기 전
-    // 좌표(= dw - 미러링된 좌표)에 뚫어야 결과적으로 --lx/--rx와 같은 화면 위치에 나타난다.
-    root.setProperty('--vlx', `${dw - leftEye.x}px`);
-    root.setProperty('--vly', `${leftEye.y}px`);
-    root.setProperty('--vrx', `${dw - rightEye.x}px`);
-    root.setProperty('--vry', `${rightEye.y}px`);
-
     const leftIrisUV = { x: landmarks[LEFT_IRIS_CENTER].x, y: landmarks[LEFT_IRIS_CENTER].y };
     const rightIrisUV = { x: landmarks[RIGHT_IRIS_CENTER].x, y: landmarks[RIGHT_IRIS_CENTER].y };
     const pixelsPerUV = { x: vw * scale, y: vh * scale };
@@ -957,7 +949,6 @@ async function init() {
     });
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } } });
     videoElement.srcObject = stream;
-    if (eyesVideoElement) eyesVideoElement.srcObject = stream;
     videoElement.addEventListener('loadeddata', () => {
         requestAnimationFrame(renderLoop);
     });
