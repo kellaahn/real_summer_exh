@@ -598,12 +598,96 @@ const RIGHT_EYE_INNER = 362;
 const RIGHT_EYE_OUTER = 263;
 const EYE_HOLE_RADIUS_MULTIPLIER = 1; // <- 눈 폭 대비 구멍 반지름. 숫자만 바꾸면 즉시 반영된다.
 const EYE_HOLE_SPACING_MULTIPLIER = 1; // <- 두 원 사이 간격. 1이면 원 중심이 동공 중심과 정확히 일치한다.
-const EYE_SPHERE_RADIUS_MULTIPLIER = 1; // <- --eye-r 대비 구 반지름. 1이어야 셰이더의 왜곡 0 지점(r=1)이 눈에 보이는 원(링/마스크) 경계와 정확히 겹친다.
-const EYE_SPHERE_ZOOM_POWER = 2.2; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다.
+const EYE_SPHERE_RADIUS_MULTIPLIER = 1; // <- --eye-r 대비 눈 확대(bulge) 반경. 1이어야 셰이더의 왜곡 0 지점(r=1)이 눈에 보이는 원(링/마스크) 경계와 정확히 겹친다.
+const EYE_SPHERE_ZOOM_POWER = 2.2; // <- 동공 확대 배율. 1이면 확대 없음(배경과 완전히 동일), 클수록 중심이 더 세게 확대된다. 실행 중엔 콘솔에서 setEyeZoomPower(값)으로 바로 바꿔볼 수 있다.
+// r(0~1, 중심~반경 끝)이 이 값을 넘어서면 확대 배율을 서서히(smoothstep) 1(확대 없음)로
+// 되돌린다. 이게 없으면 r=1 지점에서 "값"은 배경과 같아도 배율(미분)이 뚝 끊겨서 아주 얇은
+// 렌즈 테두리처럼 보일 수 있다 — 숫자를 낮출수록(예: 0.4) 더 일찍부터 넓게 부드러워지고,
+// 1에 가까울수록 거의 끝까지 확대율을 유지하다 좁은 폭에서 급히 되돌아간다.
+const EYE_WARP_FEATHER_START = 0.55;
+// 공포감을 위해 처음부터 화면 전체를 흑백으로 유지한다. CSS filter/backdrop-filter로
+// 흑백을 입히면 브라우저가 화면 실제 해상도 그대로 매 프레임 다시 필터링해야 해서
+// 아이맥(5K) 등 고해상도 화면에서 렉이 심해진다 — 이 프로젝트에서 이미 한 번 겪은
+// 문제(backdrop-filter 제거 사유)와 같은 종류다. 대신 이미 매 프레임 그리고 있는
+// 배경 셰이더 안에서 dot product 한 번으로 처리하면 별도 레이어/패스가 없고,
+// computeRendererPixelRatio()가 걸어둔 픽셀 예산 안에서만 계산되므로 화면 크기와
+// 무관하게 비용이 거의 늘지 않는다.
+// 실행 중 window.setEyeFilterGrayscale(0~1) / window.setEyeFilterSoftness(0~1)로
+// 바로 값을 바꿔볼 수 있다.
+const EYE_FILTER_GRAYSCALE_DEFAULT = 1; // <- 0=원본 컬러, 1=완전 흑백. 공포 연출용으로 처음부터 1.
+const EYE_FILTER_SOFTNESS_DEFAULT = 0; // <- 0=선명, 1=최대 소프트(뿌연) 효과
 
 // 화면 픽셀 좌표를 그대로 world 좌표로 쓰기 위한 직교 카메라. left=0,right=dw,top=0,bottom=dh로
 // 두면 화면처럼 원점이 왼쪽 위, y가 아래로 증가하는 좌표계가 그대로 맞아떨어진다.
-let threeScene, threeCamera, threeRenderer, sphereLeft, sphereRight;
+let threeScene, threeCamera, threeRenderer, backgroundPlane, backgroundMaterial;
+
+// 맥북 14인치(1512x982) 기준, DPR 캡 1.5로 실제로 그리던 렌더 버퍼 픽셀 수(≈330만)를
+// "기준 예산"으로 삼는다. 아이맥 27" 5K처럼 논리 해상도 자체가 훨씬 큰 화면(2560x1440,
+// DPR 2)은 캡을 1.5로 고정해도 버퍼가 3840x2160(≈830만, 맥북의 2.5배)까지 커져서
+// 셰이더가 매 프레임 처리해야 할 픽셀 수가 그만큼 늘어난다 — 이 프로젝트에서 풀스크린
+// 효과가 아이맥에서만 렉났던 전례(backdrop-filter 제거 사유)가 있어서, 화면이 클수록
+// 오히려 배율을 낮춰 실제 그리는 픽셀 수를 이 예산 근처로 맞춘다.
+const RENDER_PIXEL_BUDGET = 1512 * 982 * 1.5 * 1.5;
+// 예산에 맞춰 계산한 배율이 너무 낮아지면(초고해상도 화면) 화질이 눈에 띄게 물러지므로
+// 이 아래로는 떨어뜨리지 않는다.
+const MIN_PIXEL_RATIO = 0.75;
+const MAX_PIXEL_RATIO = 1.5;
+
+// 화면 크기(dw, dh: CSS px)에 맞춰 "예산을 넘지 않는 선에서 가능한 한 선명하게" 배율을
+// 정한다. 화면이 작으면(맥북 등) 예산 대비 여유가 있으니 기존처럼 min(DPR, 1.5)가 그대로
+// 나오고, 화면이 크면(아이맥 등) 예산에 맞춰 자동으로 낮아진다.
+function computeRendererPixelRatio(dw, dh) {
+    const nativeRatio = window.devicePixelRatio || 1;
+    const budgetRatio = Math.sqrt(RENDER_PIXEL_BUDGET / (dw * dh));
+    return Math.min(nativeRatio, MAX_PIXEL_RATIO, Math.max(budgetRatio, MIN_PIXEL_RATIO));
+}
+
+// 위 예산 계산은 "이 정도 픽셀 수면 어떤 기기에서든 괜찮을 것"이라는 추정일 뿐,
+// 실제 기기(특히 인텔 아이맥처럼 세대/모델에 따라 GPU 성능 차이가 큰 경우)에서도
+// 맞으리라는 보장은 없다. 그래서 실제 프레임 속도를 재서, 일정 시간 이상 계속
+// 느리면 렌더 해상도를 스스로 한 단계씩 낮추는 안전장치를 둔다 — 계산이 아니라
+// 실측 기반이라 어떤 기종을 갖다 놔도 결국 버벅이지 않는 지점을 스스로 찾아간다.
+// 한번 낮아진 뒤에는 다시 자동으로 올리지 않는다(성능이 오르내릴 때마다 화질이
+// 깜빡이며 바뀌는 걸 막기 위해서다) — 창 크기가 바뀌면 그 시점 화면 기준으로 다시 잰다.
+const ADAPTIVE_TARGET_FPS = 24; // <- 평균이 이 밑으로 떨어지면 해상도를 낮춘다.
+const ADAPTIVE_MEASURE_WINDOW_MS = 2000; // <- 이 시간(ms) 동안의 평균으로 판단한다. 순간적인 한두 프레임 버벅임에는 반응하지 않는다.
+const ADAPTIVE_STEP_DOWN_FACTOR = 0.85; // <- 느릴 때마다 배율을 이 비율만큼 곱해서 낮춘다.
+const ADAPTIVE_MIN_PIXEL_RATIO = 0.5; // <- 아무리 느려도 이 밑으로는 안 내려간다(최소 화질 하한선).
+
+let currentPixelRatio = 1;
+let adaptiveWindowStart = 0;
+let adaptiveFrameCount = 0;
+let adaptiveFrameTimeSum = 0;
+
+// 렌더러 픽셀 배율을 실제로 적용하면서 지금 배율을 기록해 둔다(다음 단계 낮출 때 기준값으로 씀).
+function applyPixelRatio(ratio) {
+    currentPixelRatio = ratio;
+    threeRenderer.setPixelRatio(ratio);
+    threeRenderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// 리사이즈 등으로 측정 구간을 새로 시작해야 할 때 부른다.
+function resetAdaptiveMeasurement(now) {
+    adaptiveWindowStart = now;
+    adaptiveFrameCount = 0;
+    adaptiveFrameTimeSum = 0;
+}
+
+// requestAnimationFrame 간격(frameMs)을 계속 누적하다가, 측정 구간(ADAPTIVE_MEASURE_WINDOW_MS)이
+// 차면 그 구간 평균 fps를 계산해서 목표(ADAPTIVE_TARGET_FPS) 밑이면 해상도를 한 단계 낮춘다.
+function maybeStepDownQuality(frameMs, now) {
+    adaptiveFrameCount++;
+    adaptiveFrameTimeSum += frameMs;
+    if (now - adaptiveWindowStart < ADAPTIVE_MEASURE_WINDOW_MS) return;
+
+    const avgFps = 1000 / (adaptiveFrameTimeSum / adaptiveFrameCount);
+    if (avgFps < ADAPTIVE_TARGET_FPS && currentPixelRatio > ADAPTIVE_MIN_PIXEL_RATIO) {
+        const next = Math.max(currentPixelRatio * ADAPTIVE_STEP_DOWN_FACTOR, ADAPTIVE_MIN_PIXEL_RATIO);
+        console.warn(`[성능] 평균 ${avgFps.toFixed(1)}fps로 느려서 렌더 해상도를 ${currentPixelRatio.toFixed(2)} → ${next.toFixed(2)}로 낮춤`);
+        applyPixelRatio(next);
+    }
+    resetAdaptiveMeasurement(now);
+}
 
 function initThreeScene() {
     if (!sphereCanvas) return;
@@ -615,90 +699,149 @@ function initThreeScene() {
     threeCamera = new THREE.OrthographicCamera(0, dw, 0, dh, 0.1, 2000);
     threeCamera.position.z = 1000;
 
-    // antialias는 화면에서 크게 확대돼 보이는 형태에는 의미가 있지만, 눈동자 크기의
-    // 작은 구 2개에는 차이가 거의 안 보이면서 매 프레임 GPU 비용만 추가된다.
     threeRenderer = new THREE.WebGLRenderer({ canvas: sphereCanvas, alpha: true, antialias: false });
-    // 아이맥(5K) 등 devicePixelRatio가 높은 화면에서는 그대로 쓰면 렌더링 픽셀 수가
-    // 급격히 늘어나 렉이 생긴다. 눈동자 구는 화면에서 작게 보이는 요소라 1.5로
-    // 캡을 씌워도 체감 화질 차이는 거의 없다.
-    threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    currentPixelRatio = computeRendererPixelRatio(dw, dh);
+    threeRenderer.setPixelRatio(currentPixelRatio);
     threeRenderer.setSize(dw, dh);
     threeRenderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    // 구를 정면(직교 카메라를 바라보는 면)에서 보면, 구 표면의 로컬 노멀 vNormal.xy가 바로
-    // 그 프래그먼트의 화면상 오프셋(중심 대비, 반지름 1 = 구의 실제 반지름 uSphereRadiusPx)과
-    // 정확히 같다. 이 성질을 이용해 "화면에 실제로 보였을 픽셀"을 역산한 뒤, 그 오프셋을
-    // r^(zoom-1) 배로 줄여서 샘플링한다 — r=1(테두리)에서는 배율이 1이 되어 배경 화면과 완전히
-    // 같은 픽셀을 보여주고(이음매 없이 자연스럽게 이어짐), r=0(동공 중심)로 갈수록 아주 좁은
-    // 영역을 크게 확대해서 보여준다. flipY=false로 두고 landmark의 x/y(0~1, 좌상단 기준)를
-    // 그대로 UV 기준으로 쓴다. x축은 배경 #webcam과 같은 미러(셀피) 방향으로 맞춰서 뺀다.
     const videoTexture = new THREE.VideoTexture(videoElement);
     videoTexture.colorSpace = THREE.SRGBColorSpace;
     videoTexture.flipY = false;
 
-    const eyeSphereVertexShader = `
-        varying vec3 vNormal;
+    // 화면 전체를 덮는 배경 영상과 눈 확대(bulge distortion)를 한 셰이더 안에서 같이
+    // 그린다. 예전에는 배경 <video> 위에 별도 3D 구 오브젝트를 "겹쳐서" 그렸는데,
+    // 그러면 구/배경이 서로 다른 렌더링 경로(비디오 태그 vs. GL 텍스처)를 타면서
+    // 디스플레이의 색상 처리 차이에 따라 경계가 보이거나 안 보이거나 했다(맥북에서는
+    // 안 보이고 아이맥에서는 보임). 방송 카메라 앱의 "눈 확대" 필터처럼, 같은 영상을
+    // 같은 자리에서 그대로 국소적으로만 왜곡시키면 애초에 다른 레이어가 없으니 경계나
+    // 색 차이가 구조적으로 생길 수 없다.
+    //
+    // 원리: 화면의 각 픽셀은 기본적으로 "배경 UV"(cover 스케일/오프셋을 거꾸로 계산해서
+    // 얻은, 그 픽셀이 원래 보여줘야 할 비디오 좌표)를 그대로 샘플링한다. 다만 눈 중심에서
+    // 반경(uEyeRadiusPx) 안에 있는 픽셀은 중심으로 갈수록 샘플링 좌표를 눈 UV 쪽으로
+    // 끌어당겨서(r^(zoom-1) 배로 좁혀서) 확대돼 보이게 한다. 반경 경계(r=1)에서는 이
+    // 배율이 정확히 1이 되어 "배경 UV"와 완전히 같은 값을 내므로(수학적으로 증명 가능),
+    // 이음매 없이 자연스럽게 배경과 이어진다.
+    const vertexShader = `
+        varying vec2 vScreenPos;
         void main() {
-            vNormal = normal;
+            vScreenPos = (modelMatrix * vec4(position, 1.0)).xy;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
     `;
-    // uEdgeFeatherStart(0~1)부터 구 가장자리(r=1)까지 알파를 1→0으로 서서히 낮춰서
-    // 경계를 부드럽게 만든다. 예전에는 화면 전체 blur/contrast 필터가 이 경계까지
-    // 같이 흐려줬는데, 그 필터를 렉 때문에 지워서 경계가 딱딱해 보이게 됐다.
-    // 화면 전체를 다시 흐리는 대신, 이 작은 구의 가장자리 픽셀만(셰이더 안에서)
-    // 투명도를 낮춰 배경과 자연스럽게 섞이게 하면 비용이 거의 들지 않는다.
-    // r=1 근처는 shrink가 이미 1에 가까워서(왜곡 거의 없음) 색 자체는 배경과 맞으므로,
-    // 알파만 페이드해도 이질감 없이 비네트처럼 자연스럽게 사라진다.
-    const eyeSphereFragmentShader = `
-        varying vec3 vNormal;
+    const fragmentShader = `
+        varying vec2 vScreenPos;
         uniform sampler2D map;
-        uniform vec2 uEyeUV;
-        uniform vec2 uPixelsPerUV;
-        uniform float uSphereRadiusPx;
+        uniform vec2 uScreenSize;
+        uniform vec2 uVideoSize;
+        uniform float uCoverScale;
+        uniform vec2 uCoverOffset;
+        uniform vec2 uEye1Px;
+        uniform float uEye1RadiusPx;
+        uniform vec2 uEye2Px;
+        uniform float uEye2RadiusPx;
         uniform float uZoomPower;
-        uniform float uEdgeFeatherStart;
+        uniform float uFeatherStart;
+        uniform float uGrayscale;
+        uniform float uSoftness;
+
+        // object-fit:cover + 좌우 미러(셀피)를 거꾸로 계산해서, 화면 픽셀이 원래
+        // 보여줘야 할 비디오 UV를 구한다. #webcam이 예전에 CSS로 하던 것과 정확히 같은 계산.
+        vec2 backgroundUV(vec2 screenP) {
+            float u = (uScreenSize.x - uCoverOffset.x - screenP.x) / (uVideoSize.x * uCoverScale);
+            float v = (screenP.y - uCoverOffset.y) / (uVideoSize.y * uCoverScale);
+            return vec2(u, v);
+        }
+
+        // "화면 좌표 자체"를 눈 중심 쪽으로 당겨서 반환한다 — sphere 같은 3D 오브젝트가
+        // 아니라, 이 픽셀이 원래 봤어야 할 비디오 좌표를 눈 중심에 더 가까운 좌표로
+        // 바꿔치기하는 것뿐이라 렌즈 확대와 똑같이 보인다. r(0=중심,1=반경 끝)이
+        // uFeatherStart를 넘어서면 배율을 smoothstep으로 서서히 1(원본 그대로)까지
+        // 되돌리기 때문에, r=1에서 값뿐 아니라 배율(미분)까지 매끄럽게 이어져 동그란
+        // 테두리가 생기지 않는다. 반경 밖(r>=1)은 이 함수를 아예 부르지 않고 원래
+        // 좌표를 그대로 쓴다.
+        vec2 warpScreenPos(vec2 screenP, vec2 eyePx, float radiusPx) {
+            vec2 d = screenP - eyePx;
+            float r = length(d) / radiusPx;
+            float rawShrink = pow(max(r, 0.0001), uZoomPower - 1.0);
+            float shrink = mix(rawShrink, 1.0, smoothstep(uFeatherStart, 1.0, r));
+            return eyePx + d * shrink;
+        }
+
         void main() {
-            vec2 n = vNormal.xy;
-            float r = min(length(n), 1.0);
-            float shrink = (r > 0.0001) ? pow(r, uZoomPower - 1.0) : 0.0;
-            vec2 screenOffsetPx = uSphereRadiusPx * n * shrink;
-            vec2 uv = vec2(
-                uEyeUV.x - screenOffsetPx.x / uPixelsPerUV.x,
-                uEyeUV.y + screenOffsetPx.y / uPixelsPerUV.y
-            );
-            float edgeAlpha = 1.0 - smoothstep(uEdgeFeatherStart, 1.0, r);
-            gl_FragColor = vec4(texture2D(map, uv).rgb, edgeAlpha);
+            vec2 p = vScreenPos;
+
+            // 두 눈의 원이 서로 겹칠 일은 거의 없지만, 혹시 겹쳐도 항상 더 가까운(강하게
+            // 걸리는) 눈 하나만 적용해서 이중으로 왜곡되지 않게 한다.
+            float n1 = (uEye1RadiusPx > 0.0001) ? length(vScreenPos - uEye1Px) / uEye1RadiusPx : 1.0e6;
+            float n2 = (uEye2RadiusPx > 0.0001) ? length(vScreenPos - uEye2Px) / uEye2RadiusPx : 1.0e6;
+
+            if (n1 <= n2 && n1 < 1.0) {
+                p = warpScreenPos(vScreenPos, uEye1Px, uEye1RadiusPx);
+            } else if (n2 < 1.0) {
+                p = warpScreenPos(vScreenPos, uEye2Px, uEye2RadiusPx);
+            }
+
+            vec3 color = texture2D(map, backgroundUV(p)).rgb;
+
+            // 아래는 눈 확대와 무관하게 화면 전체에 얹을 수 있는 추가 필터. 텍셀 크기만큼만
+            // 주변 4점을 더 찍는 저비용 블러라 매 프레임 비용이 거의 늘지 않는다.
+            if (uSoftness > 0.0001) {
+                vec2 texel = 1.0 / max(uVideoSize * uCoverScale, vec2(1.0));
+                vec2 uv = backgroundUV(p);
+                vec3 blurred = color;
+                blurred += texture2D(map, uv + vec2(texel.x, 0.0)).rgb;
+                blurred += texture2D(map, uv - vec2(texel.x, 0.0)).rgb;
+                blurred += texture2D(map, uv + vec2(0.0, texel.y)).rgb;
+                blurred += texture2D(map, uv - vec2(0.0, texel.y)).rgb;
+                color = mix(color, blurred / 5.0, uSoftness);
+            }
+
+            if (uGrayscale > 0.0001) {
+                float gray = dot(color, vec3(0.299, 0.587, 0.114));
+                color = mix(color, vec3(gray), uGrayscale);
+            }
+
+            gl_FragColor = vec4(color, 1.0);
         }
     `;
 
-    function makeEyeSphereMaterial() {
-        return new THREE.ShaderMaterial({
-            uniforms: {
-                map: { value: videoTexture },
-                uEyeUV: { value: new THREE.Vector2(0.5, 0.5) },
-                uPixelsPerUV: { value: new THREE.Vector2(1, 1) },
-                uSphereRadiusPx: { value: 0 },
-                uZoomPower: { value: EYE_SPHERE_ZOOM_POWER },
-                // 숫자를 낮추면(예: 0.6) 더 일찍부터 흐려지기 시작해서 경계가 더 넓고
-                // 모호해지고, 1에 가까울수록(예: 0.95) 경계가 좁고 또렷해진다.
-                uEdgeFeatherStart: { value: 0.65 }
-            },
-            vertexShader: eyeSphereVertexShader,
-            fragmentShader: eyeSphereFragmentShader,
-            transparent: true
-        });
-    }
+    backgroundMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            map: { value: videoTexture },
+            uScreenSize: { value: new THREE.Vector2(dw, dh) },
+            uVideoSize: { value: new THREE.Vector2(1, 1) },
+            uCoverScale: { value: 1 },
+            uCoverOffset: { value: new THREE.Vector2(0, 0) },
+            uEye1Px: { value: new THREE.Vector2(-9999, -9999) },
+            uEye1RadiusPx: { value: 0 },
+            uEye2Px: { value: new THREE.Vector2(-9999, -9999) },
+            uEye2RadiusPx: { value: 0 },
+            uZoomPower: { value: EYE_SPHERE_ZOOM_POWER },
+            uFeatherStart: { value: EYE_WARP_FEATHER_START },
+            uGrayscale: { value: EYE_FILTER_GRAYSCALE_DEFAULT },
+            uSoftness: { value: EYE_FILTER_SOFTNESS_DEFAULT }
+        },
+        vertexShader,
+        fragmentShader,
+        // 화면 y가 아래로 증가하게 하려고 카메라를 top=0/bottom=dh로 "뒤집어" 만들었는데
+        // (위 OrthographicCamera 생성부 참고), 이 y-flip이 이 평면의 정점 감김 방향도
+        // 같이 뒤집어버린다. 기본값 FrontSide(뒷면 컬링)로 두면 매 프레임 이 평면 전체가
+        // 백페이스로 판정돼 통째로 컬링되어 아무것도 안 그려지고 캔버스가 계속 투명한
+        // 채로 남는다(= 뒤에 있는 body 배경색만 보임, 지금까지 "촬영본이 안 나온다"던
+        // 증상의 원인). 화면 전체를 덮는 평면 하나뿐이라 양면 그리기 비용도 무시할 만해서
+        // DoubleSide로 컬링 자체를 꺼서 해결한다.
+        side: THREE.DoubleSide
+    });
 
-    // 세그먼트 48x48은 화면에 작게 보이는 구 하나에는 과한 정점 수라 32x32로 줄임.
-    // 셰이딩은 프래그먼트 셰이더가 담당하므로(vNormal 기반) 윤곽선 둥근 정도만
-    // 영향을 받고, 이 정도 화면 크기에서는 육안으로 차이가 안 보인다.
-    const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
-    sphereLeft = new THREE.Mesh(sphereGeometry, makeEyeSphereMaterial());
-    sphereRight = new THREE.Mesh(sphereGeometry, makeEyeSphereMaterial());
-    sphereLeft.scale.set(0, 0, 0);
-    sphereRight.scale.set(0, 0, 0);
-    threeScene.add(sphereLeft, sphereRight);
+    // 단위 평면(1x1)을 화면 크기만큼 scale해서 쓰면, 리사이즈 때 geometry를 새로
+    // 만들 필요 없이 scale/position만 갱신하면 된다.
+    const planeGeometry = new THREE.PlaneGeometry(1, 1);
+    backgroundPlane = new THREE.Mesh(planeGeometry, backgroundMaterial);
+    backgroundPlane.position.set(dw / 2, dh / 2, 0);
+    backgroundPlane.scale.set(dw, dh, 1);
+    threeScene.add(backgroundPlane);
 
     window.addEventListener('resize', () => {
         const w = window.innerWidth;
@@ -706,45 +849,78 @@ function initThreeScene() {
         threeCamera.right = w;
         threeCamera.bottom = h;
         threeCamera.updateProjectionMatrix();
+        currentPixelRatio = computeRendererPixelRatio(w, h);
+        threeRenderer.setPixelRatio(currentPixelRatio);
         threeRenderer.setSize(w, h);
+        backgroundPlane.position.set(w / 2, h / 2, 0);
+        backgroundPlane.scale.set(w, h, 1);
+        backgroundMaterial.uniforms.uScreenSize.value.set(w, h);
+        // 화면 크기가 바뀌면 그 순간의 튐이 이전 측정 평균에 섞이지 않도록 새로 잰다.
+        resetAdaptiveMeasurement(performance.now());
     });
 }
 
-// 눈이 인식되지 않을 때 구를 완전히 숨긴다. 이미 숨겨진 상태에서 계속 호출돼도
-// (얼굴이 안 보이는 동안 매 프레임 호출됨) 다시 그리지 않도록 skipIfAlreadyHidden로
-// 막아서, 얼굴이 안 보이는 동안 매 프레임 헛도는 렌더 호출을 없앤다.
-let eyeSpheresHidden = false;
-function disableEyeSpheres() {
-    if (eyeSpheresHidden) return;
-    eyeSpheresHidden = true;
-    if (!sphereLeft || !sphereRight) return;
-    sphereLeft.scale.set(0, 0, 0);
-    sphereRight.scale.set(0, 0, 0);
+// object-fit:cover 스케일/오프셋 값을 셰이더에 매 프레임 넘겨서, 배경 영상이 화면
+// 크기·비디오 크기에 맞게 항상 올바르게 표시되도록 한다(리사이즈 즉시 대응).
+function updateBackgroundUniforms(dw, dh, vw, vh, scale, offsetX, offsetY) {
+    if (!backgroundMaterial) return;
+    const u = backgroundMaterial.uniforms;
+    u.uScreenSize.value.set(dw, dh);
+    u.uVideoSize.value.set(vw, vh);
+    u.uCoverScale.value = scale;
+    u.uCoverOffset.value.set(offsetX, offsetY);
+}
+
+// 눈이 인식되지 않을 때 확대 효과를 끈다(반경 0 → 셰이더가 배경 UV만 쓰게 됨).
+// 배경 영상 자체는 이 캔버스가 계속 그려야 하므로(더 이상 별도 <video> 표시가 없음)
+// render()는 매번 그대로 호출해서 영상이 계속 살아있게 한다.
+function disableEyeWarp() {
+    if (!backgroundMaterial) return;
+    backgroundMaterial.uniforms.uEye1RadiusPx.value = 0;
+    backgroundMaterial.uniforms.uEye2RadiusPx.value = 0;
     threeRenderer.render(threeScene, threeCamera);
 }
 
-// 동공 위치(화면 좌표, y는 위에서부터)에 맞춰 구 위치/크기를 갱신하고, 구 표면에 비칠 영상도
-// 각 눈의 홍채 UV(leftIrisUV/rightIrisUV, 0~1)를 중심으로 다시 잡아준 뒤 다시 그린다.
-// pixelsPerUV(=vw*scale, vh*scale)는 화면 픽셀 오프셋을 UV 오프셋으로 되돌리기 위한 값으로,
-// 셰이더가 "가장자리는 배경과 같은 픽셀, 중심은 확대"를 계산하는 데 그대로 쓰인다.
-function updateEyeSpheres(leftEye, rightEye, radius, leftIrisUV, rightIrisUV, pixelsPerUV) {
-    if (!sphereLeft || !sphereRight) return;
+// 동공 위치(화면 좌표, y는 위에서부터)로 왜곡 중심/범위를 갱신하고 다시 그린다.
+// 셰이더가 화면 좌표를 직접 눈 중심 쪽으로 당겨서 샘플링하므로(warpScreenPos),
+// 홍채 UV를 따로 넘겨줄 필요가 없다 — UV/픽셀 두 좌표계를 손으로 맞추다 어긋나는
+// 실수 자체가 구조적으로 사라진다.
+function updateEyeWarp(leftEye, rightEye, radius) {
+    if (!backgroundMaterial) return;
     const r = radius * EYE_SPHERE_RADIUS_MULTIPLIER;
+    const u = backgroundMaterial.uniforms;
 
-    sphereLeft.position.set(leftEye.x, leftEye.y, 0);
-    sphereLeft.scale.set(r, r, r);
-    sphereLeft.material.uniforms.uEyeUV.value.set(leftIrisUV.x, leftIrisUV.y);
-    sphereLeft.material.uniforms.uPixelsPerUV.value.set(pixelsPerUV.x, pixelsPerUV.y);
-    sphereLeft.material.uniforms.uSphereRadiusPx.value = r;
+    u.uEye1Px.value.set(leftEye.x, leftEye.y);
+    u.uEye1RadiusPx.value = r;
 
-    sphereRight.position.set(rightEye.x, rightEye.y, 0);
-    sphereRight.scale.set(r, r, r);
-    sphereRight.material.uniforms.uEyeUV.value.set(rightIrisUV.x, rightIrisUV.y);
-    sphereRight.material.uniforms.uPixelsPerUV.value.set(pixelsPerUV.x, pixelsPerUV.y);
-    sphereRight.material.uniforms.uSphereRadiusPx.value = r;
+    u.uEye2Px.value.set(rightEye.x, rightEye.y);
+    u.uEye2RadiusPx.value = r;
 
     threeRenderer.render(threeScene, threeCamera);
 }
+
+// 눈 확대 배율을 실행 중에 바로 조절해볼 수 있게 window에 노출해 둔다. 1이면 확대
+// 없음(배경과 완전히 동일), 클수록 눈 중심이 더 세게 확대된다. 코드의 기본값
+// (EYE_SPHERE_ZOOM_POWER, 지금 2.2)을 바꾸지 않고도 콘솔에서 바로 값을 바꿔가며
+// 원하는 확대 정도를 찾아볼 수 있다: setEyeZoomPower(3.5)
+function setEyeZoomPower(power) {
+    if (!backgroundMaterial) return;
+    backgroundMaterial.uniforms.uZoomPower.value = Math.max(power, 1);
+}
+window.setEyeZoomPower = setEyeZoomPower;
+
+// 눈 확대와 별개로, 화면 전체에 얹는 흑백/소프트 효과를 실행 중에 바로 조절해볼 수
+// 있게 window에 노출해 둔다. 콘솔에서: setEyeFilterGrayscale(1), setEyeFilterSoftness(0.5)
+function setEyeFilterGrayscale(amount) {
+    if (!backgroundMaterial) return;
+    backgroundMaterial.uniforms.uGrayscale.value = Math.min(Math.max(amount, 0), 1);
+}
+function setEyeFilterSoftness(amount) {
+    if (!backgroundMaterial) return;
+    backgroundMaterial.uniforms.uSoftness.value = Math.min(Math.max(amount, 0), 1);
+}
+window.setEyeFilterGrayscale = setEyeFilterGrayscale;
+window.setEyeFilterSoftness = setEyeFilterSoftness;
 
 initThreeScene();
 
@@ -868,16 +1044,28 @@ const EYE_LOST_RESET_GRACE_MS = 1200;
 // 눈이 마지막으로 안 보이기 "시작"한 시각(ms). 계속 보이는 동안은 null.
 let eyesLostSince = null;
 
-// 눈(홍채) 위치를 화면 좌표로 변환해 마스크 구멍 위치/반경과 눈 확대 구를 갱신한다.
+// 눈(홍채) 위치를 화면 좌표로 변환해 마스크 구멍 위치/반경과 눈 확대(bulge) 효과를 갱신한다.
 // 좌표 자체는 미러링 변환이 없으므로, 여기서는 화면에 실제로 보이는(미러링된) 좌표로 바꿔서 쓴다.
 // .pont가 없어도(지금처럼 .geuls로 대체된 경우) 눈 추적/확대는 계속 동작해야 하므로
 // pontElement 존재 여부로 이 함수 전체를 막지 않는다.
 function updateEyeReveal(landmarks) {
     const vw = videoElement.videoWidth;
     const vh = videoElement.videoHeight;
-    if (!landmarks || !vw || !vh) {
+    if (!vw || !vh) return; // 비디오 메타데이터가 아직 준비 전이면 아무것도 할 수 없다.
+
+    // 배경 영상 표시는 더 이상 CSS(object-fit:cover)가 아니라 셰이더가 맡으므로,
+    // 이 변환 값을 얼굴 인식 여부와 무관하게 매 프레임 셰이더에 넘겨줘야 화면
+    // 크기가 바뀌거나 얼굴이 안 보이는 동안에도 배경 영상이 계속 올바르게 보인다.
+    const dw = window.innerWidth;
+    const dh = window.innerHeight;
+    const scale = Math.max(dw / vw, dh / vh);
+    const offsetX = (dw - vw * scale) / 2;
+    const offsetY = (dh - vh * scale) / 2;
+    updateBackgroundUniforms(dw, dh, vw, vh, scale, offsetX, offsetY);
+
+    if (!landmarks) {
         document.documentElement.style.setProperty('--eye-r', '0px');
-        disableEyeSpheres();
+        disableEyeWarp();
         // 눈이 안 보이기 시작한 순간부터 EYE_LOST_RESET_GRACE_MS(ms) 이상
         // 계속 안 보일 때만 사각형 칸들을 흰색으로 되돌린다. 그 안에 눈이
         // 다시 잡히면(아래 eyesLostSince = null) 초기화 없이 진행 상태가 유지된다.
@@ -893,13 +1081,6 @@ function updateEyeReveal(landmarks) {
     }
     eyesWereVisible = true;
     eyesLostSince = null;
-    eyeSpheresHidden = false;
-
-    const dw = window.innerWidth;
-    const dh = window.innerHeight;
-    const scale = Math.max(dw / vw, dh / vh);
-    const offsetX = (dw - vw * scale) / 2;
-    const offsetY = (dh - vh * scale) / 2;
 
     const toScreen = (pt) => ({
         x: dw - (pt.x * vw * scale + offsetX), // 미러링(selfie 시점)
@@ -935,10 +1116,7 @@ function updateEyeReveal(landmarks) {
     root.setProperty('--ry', `${rightEye.y}px`);
     root.setProperty('--eye-r', `${radius}px`);
 
-    const leftIrisUV = { x: landmarks[LEFT_IRIS_CENTER].x, y: landmarks[LEFT_IRIS_CENTER].y };
-    const rightIrisUV = { x: landmarks[RIGHT_IRIS_CENTER].x, y: landmarks[RIGHT_IRIS_CENTER].y };
-    const pixelsPerUV = { x: vw * scale, y: vh * scale };
-    updateEyeSpheres(leftEye, rightEye, radius, leftIrisUV, rightIrisUV, pixelsPerUV);
+    updateEyeWarp(leftEye, rightEye, radius);
 }
 
 function onResults(results) {
@@ -949,11 +1127,32 @@ function onResults(results) {
     }
 }
 
-function renderLoop() {
-    if (videoElement.currentTime !== lastVideoTime) {
-        lastVideoTime = videoElement.currentTime;
-        const results = faceLandmarker.detectForVideo(videoElement, performance.now());
-        onResults(results);
+let lastFrameTimestamp = 0;
+
+function renderLoop(timestamp) {
+    // requestAnimationFrame이 넘겨주는 timestamp로 매 프레임 간격(ms)을 재서
+    // maybeStepDownQuality에 넘긴다 — 이 기기에서 실제로 얼마나 느린지는 계산이
+    // 아니라 이렇게 재보는 것 외엔 알 방법이 없다.
+    if (lastFrameTimestamp) {
+        maybeStepDownQuality(timestamp - lastFrameTimestamp, timestamp);
+    } else {
+        resetAdaptiveMeasurement(timestamp);
+    }
+    lastFrameTimestamp = timestamp;
+
+    // 이 안에서 예외가 하나라도 던져지면(예: 셰이더/렌더링 버그) try/catch가 없을 때
+    // 맨 아래 requestAnimationFrame(renderLoop) 호출까지 도달하지 못해서 루프
+    // 자체가 그 프레임에서 영원히 멈춰버린다 — 카메라는 계속 켜져 있는데 화면만
+    // 멈추는(지금처럼 파랗게 굳는) 증상이 된다. 그래서 실제로 무슨 에러인지 콘솔에
+    // 분명하게 남기고, 다음 프레임은 계속 시도하도록 막는다.
+    try {
+        if (videoElement.currentTime !== lastVideoTime) {
+            lastVideoTime = videoElement.currentTime;
+            const results = faceLandmarker.detectForVideo(videoElement, performance.now());
+            onResults(results);
+        }
+    } catch (err) {
+        console.error('renderLoop 프레임 처리 중 에러:', err);
     }
     requestAnimationFrame(renderLoop);
 }

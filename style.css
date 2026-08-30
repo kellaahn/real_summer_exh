@@ -115,7 +115,7 @@ html, body{
    똑같이 <table>+border-collapse로 만든다 — 계산 방식 자체가 같아지므로
    크기가 절대 어긋나지 않는다. 테두리는 .char-cell과 같은 두께(1px)를
    유지하되 색만 투명하게 해서 안 보이게 한다.
-   쌓임 순서: #webcam(10) < eye-ring/eye-sphere-canvas(91~92)
+   쌓임 순서: #eye-sphere-canvas(10, 배경 영상+눈 확대) < eye-ring(91)
    < .rect-grid(900, 이 레이어) < .char-grid(1000, 표) */
 .rect-grid{
     position: fixed;
@@ -174,7 +174,11 @@ html, body{
     line-height: 1;
 }
 
-/* three.js가 그리는 3D 구 캔버스. 화면 전체를 덮되 배경은 투명하게 두고,
+/* three.js가 그리는 배경 캔버스. 카메라 영상 전체를 여기서 그리고, 눈 위치 2곳만
+   같은 셰이더/텍스처 안에서 국소적으로 확대(bulge distortion)해서 보여준다 —
+   방송 카메라 앱의 "눈 확대" 필터와 같은 원리. 별도 3D 오브젝트를 영상 위에
+   "겹쳐 그리는" 방식이 아니라 배경과 완전히 같은 셰이더가 그리는 거라, 디스플레이의
+   색상 처리가 달라도 경계나 색 차이가 구조적으로 생기지 않는다.
    sketch.js가 렌더러 크기를 window와 맞춰준다. */
 #eye-sphere-canvas{
     position: fixed;
@@ -183,7 +187,7 @@ html, body{
     width: 100vw;
     height: 100vh;
     pointer-events: none;
-    z-index: 92;
+    z-index: 10;
 }
 
 /* 처음 화면부터 눈 위치를 계속 추적하여, 각 눈 주변에 원형 테두리를 그려준다.
@@ -212,24 +216,20 @@ html, body{
     top: var(--ry, -9999px);
 }
 
-/* 화면 전체를 덮는 실제 촬영본. 미러링해서 셀피처럼 자연스럽게 보이게 한다.
-   opacity는 여기서 고정하지 않으니 필요에 맞게 직접 조절하면 된다. */
+/* 화면에는 이 비디오를 더 이상 직접 표시하지 않는다 — three.js(#eye-sphere-canvas)가
+   같은 프레임을 텍스처로 읽어서 배경과 눈 확대(bulge)를 한 셰이더 안에서 그린다.
+   opacity:0으로만 안 보이게 하고 크기는 화면 전체로 그대로 둔다 — 사파리 등 일부
+   브라우저는 가로세로 1px처럼 거의 보이지 않는 크기의 비디오를 배터리 절약 차원에서
+   재생 자체를 멈춰버리는 경우가 있어서, 크기는 정상으로 두고 opacity만 낮춘다. */
 #webcam{
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    object-fit: cover;
-    transform: scaleX(-1);
+    opacity: 0;
     pointer-events: none;
-
-
-    opacity: 1;
-
-
-    z-index: 10;
-    transition: opacity 1s ease;
+    z-index: -1;
 }
 
 
